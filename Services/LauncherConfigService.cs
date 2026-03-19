@@ -72,12 +72,29 @@ public sealed class LauncherConfigService
             }
         }
 
+        if (config.PreferManagedBridgeInstall)
+        {
+            if (File.Exists(_paths.ManagedBridgeJarPath))
+            {
+                if (!PathsEqual(config.BridgeJarPath, _paths.ManagedBridgeJarPath))
+                {
+                    config.BridgeJarPath = _paths.ManagedBridgeJarPath;
+                    _logger.Info($"Using managed bridge runtime at {_paths.ManagedBridgeJarPath}");
+                }
+            }
+            else if (repoRoot is not null && IsWorkspaceBridgePath(repoRoot, config.BridgeJarPath))
+            {
+                config.BridgeJarPath = null;
+                _logger.Info("Cleared workspace bridge path so the launcher can use a managed bridge runtime instead.");
+            }
+        }
+
         if (repoRoot is null)
         {
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(config.BridgeJarPath))
+        if (!config.PreferManagedBridgeInstall && string.IsNullOrWhiteSpace(config.BridgeJarPath))
         {
             var preferred = Path.Combine(repoRoot, "bridge", "scripts", "output");
             var fallback = Path.Combine(repoRoot, "bridge", "_build", "bootstrap-standalone", "libs");
@@ -139,6 +156,18 @@ public sealed class LauncherConfigService
         var fullPath = Path.GetFullPath(path);
         var workspaceClientRoot = Path.GetFullPath(Path.Combine(repoRoot, "client")) + Path.DirectorySeparatorChar;
         return fullPath.StartsWith(workspaceClientRoot, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsWorkspaceBridgePath(string repoRoot, string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        var fullPath = Path.GetFullPath(path);
+        var workspaceBridgeRoot = Path.GetFullPath(Path.Combine(repoRoot, "bridge")) + Path.DirectorySeparatorChar;
+        return fullPath.StartsWith(workspaceBridgeRoot, StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool PathsEqual(string? left, string? right)

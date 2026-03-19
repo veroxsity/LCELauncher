@@ -149,13 +149,14 @@ public sealed partial class MainForm
         EnableDoubleBuffering(container);
 
         container.Controls.Add(BuildManagedClientSettingsCard(), 0, 0);
+        container.Controls.Add(BuildManagedBridgeSettingsCard(), 0, 1);
 
         container.Controls.Add(BuildSettingsCard("Executables", new[]
         {
             BuildFileRow("Client Executable", _clientExecutableTextBox, () => BrowseForFile(_clientExecutableTextBox, "Minecraft Client|Minecraft.Client.exe|Executable|*.exe")),
             BuildFileRow("Bridge Jar", _bridgeJarTextBox, () => BrowseForFile(_bridgeJarTextBox, "Bridge Jar|*.jar|All Files|*.*")),
             BuildFileRow("Java Executable", _javaExecutableTextBox, () => BrowseForFile(_javaExecutableTextBox, "Java Executable|java.exe|Executable|*.exe")),
-        }), 0, 1);
+        }), 0, 2);
 
         container.Controls.Add(BuildSettingsCard("Profile", new[]
         {
@@ -163,14 +164,14 @@ public sealed partial class MainForm
             BuildFormRow("Local Username", _localUsernameTextBox),
             BuildFormRow("Selected Server", _selectedServerComboBox),
             BuildFormRow("Launch Arguments", _launchArgumentsTextBox),
-        }), 0, 2);
+        }), 0, 3);
 
         container.Controls.Add(BuildSettingsCard("Runtime", new[]
         {
             BuildFormRow("First Bridge Port", _firstBridgePortUpDown),
             BuildFormRow("Close Bridge On Exit", _closeBridgeOnExitCheckBox),
             BuildFormRow("Launcher Data Root", CreateBodyLabel(_appPaths.DataRoot)),
-        }), 0, 3);
+        }), 0, 4);
 
         var actionsPanel = new Panel
         {
@@ -189,9 +190,47 @@ public sealed partial class MainForm
         saveButton.Click += (_, _) => SaveConfigFromControls();
         actionsPanel.Controls.Add(saveButton);
 
-        container.Controls.Add(actionsPanel, 0, 4);
+        container.Controls.Add(actionsPanel, 0, 5);
 
         return CreateResponsivePage("Settings", "Point the launcher at local builds and keep phase-one runtime behavior explicit.", container, 1100, false);
+    }
+
+    private Panel BuildManagedBridgeSettingsCard()
+    {
+        _managedBridgeStatusLabel.Margin = new Padding(0, 8, 0, 0);
+        _managedBridgeDetailsLabel.Margin = new Padding(0, 8, 0, 0);
+
+        var actions = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
+            BackColor = Color.Transparent,
+            Margin = new Padding(0, 14, 0, 0),
+            Padding = Padding.Empty,
+        };
+        EnableDoubleBuffering(actions);
+
+        _installBridgeButton.Margin = new Padding(0, 0, 10, 10);
+        _useManagedBridgeButton.Margin = new Padding(0, 0, 10, 10);
+        _openManagedBridgeButton.Margin = new Padding(0, 0, 0, 10);
+
+        _installBridgeButton.Click += async (_, _) => await InstallManagedBridgeAsync();
+        _useManagedBridgeButton.Click += (_, _) => UseManagedBridgeInstall();
+        _openManagedBridgeButton.Click += (_, _) => OpenDirectorySafely(_appPaths.ManagedBridgeInstallRoot);
+
+        actions.Controls.Add(_installBridgeButton);
+        actions.Controls.Add(_useManagedBridgeButton);
+        actions.Controls.Add(_openManagedBridgeButton);
+
+        return BuildSettingsCard("Managed Bridge", new Control[]
+        {
+            BuildFormRow("Install Channel", CreateBodyLabel("bundled launcher bridge")),
+            BuildFormRow("Managed Status", _managedBridgeStatusLabel),
+            BuildFormRow("Install Details", _managedBridgeDetailsLabel),
+            actions,
+        });
     }
 
     private Panel BuildManagedClientSettingsCard()

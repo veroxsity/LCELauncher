@@ -385,6 +385,8 @@ public sealed partial class MainForm
         _config.LocalUsername = string.IsNullOrWhiteSpace(_localUsernameTextBox.Text) ? "Player" : _localUsernameTextBox.Text.Trim();
         _config.PreferManagedClientInstall = string.IsNullOrWhiteSpace(configuredClientPath) || PathsEqual(configuredClientPath, _appPaths.NightlyClientExecutablePath);
         _config.ClientExecutablePath = configuredClientPath;
+        var configuredBridgePath = NullIfWhitespace(_bridgeJarTextBox.Text);
+        _config.PreferManagedBridgeInstall = string.IsNullOrWhiteSpace(configuredBridgePath) || PathsEqual(configuredBridgePath, _appPaths.ManagedBridgeJarPath);
 
         if (_config.PreferManagedClientInstall && File.Exists(_appPaths.NightlyClientExecutablePath))
         {
@@ -392,7 +394,13 @@ public sealed partial class MainForm
             _clientExecutableTextBox.Text = _config.ClientExecutablePath;
         }
 
-        _config.BridgeJarPath = NullIfWhitespace(_bridgeJarTextBox.Text);
+        _config.BridgeJarPath = configuredBridgePath;
+        if (_config.PreferManagedBridgeInstall && File.Exists(_appPaths.ManagedBridgeJarPath))
+        {
+            _config.BridgeJarPath = _appPaths.ManagedBridgeJarPath;
+            _bridgeJarTextBox.Text = _config.BridgeJarPath;
+        }
+
         _config.JavaExecutablePath = string.IsNullOrWhiteSpace(_javaExecutableTextBox.Text) ? "java" : _javaExecutableTextBox.Text.Trim();
         _config.FirstBridgePort = decimal.ToInt32(_firstBridgePortUpDown.Value);
         _config.CloseBridgeOnExit = _closeBridgeOnExitCheckBox.Checked;
@@ -405,6 +413,7 @@ public sealed partial class MainForm
         _configService.Save(_config);
         RefreshServerViews();
         RefreshStatus();
+        RefreshManagedBridgeStatus();
         RefreshManagedInstallStatus();
     }
 
@@ -514,11 +523,34 @@ public sealed partial class MainForm
         _stopBridgeButton.Enabled = !busy;
         _checkNightlyUpdatesButton.Enabled = !busy;
         var installInfo = _clientInstallService.GetManagedInstallInfo();
+        var managedBridge = _bridgeInstallService.GetManagedInstallInfo();
         _installNightlyButton.Enabled = !busy;
         _updateNightlyButton.Enabled = !busy && installInfo.IsInstalled;
         _repairNightlyButton.Enabled = !busy;
         _useManagedNightlyButton.Enabled = !busy && installInfo.IsInstalled;
         _openManagedInstallButton.Enabled = !busy && installInfo.IsInstalled;
+        _installBridgeButton.Enabled = !busy;
+        _useManagedBridgeButton.Enabled = !busy && managedBridge.IsInstalled;
+        _openManagedBridgeButton.Enabled = !busy && managedBridge.IsInstalled;
+    }
+
+    private void RefreshManagedBridgeStatus()
+    {
+        var installInfo = _bridgeInstallService.GetManagedInstallInfo();
+        var isUsingManagedBridge = PathsEqual(_bridgeJarTextBox.Text, installInfo.BridgeJarPath);
+
+        _managedBridgeStatusLabel.Text = installInfo.IsInstalled
+            ? (isUsingManagedBridge ? $"Installed and active: {installInfo.DisplayVersion}" : $"Installed: {installInfo.DisplayVersion}")
+            : "Not installed";
+
+        _managedBridgeDetailsLabel.Text = installInfo.IsInstalled
+            ? $"Root: {installInfo.InstallRoot}{Environment.NewLine}Jar: {Path.GetFileName(installInfo.BridgeJarPath)}{Environment.NewLine}Installed: {FormatTimestamp(installInfo.InstalledAtUtc)}"
+            : $"Expected install root: {installInfo.InstallRoot}{Environment.NewLine}Install Bridge will copy the bundled launcher bridge runtime into AppData.";
+
+        _managedBridgeDetailsLabel.MaximumSize = new Size(720, 0);
+        _installBridgeButton.Enabled = true;
+        _useManagedBridgeButton.Enabled = installInfo.IsInstalled;
+        _openManagedBridgeButton.Enabled = installInfo.IsInstalled;
     }
 
     private void RefreshManagedInstallStatus()
@@ -757,6 +789,47 @@ public sealed partial class MainForm
             RefreshManagedInstallStatus();
             await RefreshManagedInstallUpdateStatusAsync(notifyIfAvailable: false);
         }
+    }
+
+    private async Task InstallManagedBridgeAsync()
+    {
+        try
+        {
+            SetBusy(true);
+            var installInfo = await _bridgeInstallService.EnsureManagedBridgeInstalledAsync(CancellationToken.None);
+            _config.PreferManagedBridgeInstall = true;
+            _config.BridgeJarPath = installInfo.BridgeJarPath;
+            _bridgeJarTextBox.Text = installInfo.BridgeJarPath;
+            _configService.Save(_config);
+            RefreshManagedBridgeStatus();
+            RefreshStatus();
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex.Message);
+            MessageBox.Show(this, ex.Message, "Bridge Install Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally
+        {
+            SetBusy(false);
+            RefreshManagedBridgeStatus();
+        }
+    }
+
+    private void UseManagedBridgeInstall()
+    {
+        var installInfo = _bridgeInstallService.GetManagedInstallInfo();
+        if (!installInfo.IsInstalled)
+        {
+            MessageBox.Show(this, "The managed bridge runtime is not installed yet.", "Managed Bridge", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        _config.PreferManagedBridgeInstall = true;
+        _config.BridgeJarPath = installInfo.BridgeJarPath;
+        _bridgeJarTextBox.Text = installInfo.BridgeJarPath;
+        _configService.Save(_config);
+        RefreshManagedBridgeStatus();
     }
 
     private void UseManagedNightlyInstall()

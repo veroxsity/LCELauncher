@@ -38,6 +38,7 @@ public sealed partial class MainForm : Form
     private readonly ServerManager _serverManager;
     private readonly ClientProfileManager _clientProfileManager;
     private readonly ClientInstallService _clientInstallService;
+    private readonly BridgeInstallService _bridgeInstallService;
     private readonly BridgeRuntimeManager _bridgeRuntimeManager;
     private readonly LaunchCoordinator _launchCoordinator;
     private readonly LauncherConfig _config;
@@ -61,10 +62,15 @@ public sealed partial class MainForm : Form
     private readonly TextBox _launchArgumentsTextBox;
     private readonly CheckBox _checkForManagedClientUpdatesOnStartupCheckBox;
     private readonly CheckBox _notifyWhenManagedClientUpdateAvailableCheckBox;
+    private readonly Label _managedBridgeStatusLabel;
+    private readonly Label _managedBridgeDetailsLabel;
     private readonly Label _managedClientStatusLabel;
     private readonly Label _managedClientDetailsLabel;
     private readonly Label _managedClientUpdateLabel;
     private readonly Label _managedClientLastCheckedLabel;
+    private readonly Button _installBridgeButton;
+    private readonly Button _useManagedBridgeButton;
+    private readonly Button _openManagedBridgeButton;
     private readonly Button _checkNightlyUpdatesButton;
     private readonly Button _installNightlyButton;
     private readonly Button _updateNightlyButton;
@@ -99,8 +105,9 @@ public sealed partial class MainForm : Form
         _serverManager = new ServerManager();
         _clientProfileManager = new ClientProfileManager(_serverManager, _logger);
         _clientInstallService = new ClientInstallService(_appPaths, _logger);
+        _bridgeInstallService = new BridgeInstallService(_appPaths, _logger);
         _bridgeRuntimeManager = new BridgeRuntimeManager(_appPaths, _logger);
-        _launchCoordinator = new LaunchCoordinator(_serverManager, _clientProfileManager, _bridgeRuntimeManager, _logger);
+        _launchCoordinator = new LaunchCoordinator(_serverManager, _clientProfileManager, _bridgeInstallService, _bridgeRuntimeManager, _logger);
         _config = _configService.Load();
         _serverManager.Normalize(_config);
         _configService.Save(_config);
@@ -147,10 +154,15 @@ public sealed partial class MainForm : Form
         _launchArgumentsTextBox = CreateTextBox();
         _checkForManagedClientUpdatesOnStartupCheckBox = CreateCheckBox("Check nightly updates when the launcher starts");
         _notifyWhenManagedClientUpdateAvailableCheckBox = CreateCheckBox("Notify me when a newer managed nightly build is available");
+        _managedBridgeStatusLabel = CreateBodyLabel(string.Empty);
+        _managedBridgeDetailsLabel = CreateBodyLabel(string.Empty);
         _managedClientStatusLabel = CreateBodyLabel(string.Empty);
         _managedClientDetailsLabel = CreateBodyLabel(string.Empty);
         _managedClientUpdateLabel = CreateBodyLabel("Checking nightly release...");
         _managedClientLastCheckedLabel = CreateBodyLabel("Not checked yet");
+        _installBridgeButton = CreateSecondaryButton("INSTALL BRIDGE");
+        _useManagedBridgeButton = CreateSecondaryButton("USE MANAGED BRIDGE");
+        _openManagedBridgeButton = CreateSecondaryButton("OPEN BRIDGE FOLDER");
         _checkNightlyUpdatesButton = CreateSecondaryButton("CHECK FOR UPDATES");
         _installNightlyButton = CreateSecondaryButton("INSTALL NIGHTLY");
         _updateNightlyButton = CreateSecondaryButton("UPDATE CLIENT");
@@ -181,6 +193,7 @@ public sealed partial class MainForm : Form
         LoadConfigIntoControls();
         RefreshServerViews();
         RefreshStatus();
+        RefreshManagedBridgeStatus();
         RefreshManagedInstallStatus();
         AppendExistingLogs();
         ShowPage(PageHome);

@@ -7,17 +7,20 @@ public sealed class LaunchCoordinator
 {
     private readonly ServerManager _serverManager;
     private readonly ClientProfileManager _clientProfileManager;
+    private readonly BridgeInstallService _bridgeInstallService;
     private readonly BridgeRuntimeManager _bridgeRuntimeManager;
     private readonly LauncherLogger _logger;
 
     public LaunchCoordinator(
         ServerManager serverManager,
         ClientProfileManager clientProfileManager,
+        BridgeInstallService bridgeInstallService,
         BridgeRuntimeManager bridgeRuntimeManager,
         LauncherLogger logger)
     {
         _serverManager = serverManager;
         _clientProfileManager = clientProfileManager;
+        _bridgeInstallService = bridgeInstallService;
         _bridgeRuntimeManager = bridgeRuntimeManager;
         _logger = logger;
     }
@@ -35,6 +38,12 @@ public sealed class LaunchCoordinator
 
         if (selectedServer?.Type == ServerType.JavaBridge)
         {
+            if (config.PreferManagedBridgeInstall)
+            {
+                var bridgeInstall = await _bridgeInstallService.EnsureManagedBridgeInstalledAsync(cancellationToken);
+                config.BridgeJarPath = bridgeInstall.BridgeJarPath;
+            }
+
             if (selectedServer.RequiresOnlineAuth)
             {
                 throw new InvalidOperationException("This server is marked as requiring online auth. Phase one only supports local auth flow.");

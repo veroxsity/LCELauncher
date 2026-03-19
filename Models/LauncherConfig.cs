@@ -4,6 +4,8 @@ public sealed class LauncherConfig
 {
     public bool PreferManagedClientInstall { get; set; } = true;
 
+    public bool PreferManagedBridgeInstall { get; set; } = true;
+
     public bool CheckForManagedClientUpdatesOnStartup { get; set; } = true;
 
     public bool NotifyWhenManagedClientUpdateAvailable { get; set; } = true;
