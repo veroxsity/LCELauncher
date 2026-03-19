@@ -4,6 +4,10 @@ public sealed class LauncherConfig
 {
     public bool PreferManagedClientInstall { get; set; } = true;
 
+    public bool CheckForManagedClientUpdatesOnStartup { get; set; } = true;
+
+    public bool NotifyWhenManagedClientUpdateAvailable { get; set; } = true;
+
     public string? ClientExecutablePath { get; set; }
 
     public string? BridgeJarPath { get; set; }
@@ -21,6 +25,16 @@ public sealed class LauncherConfig
     public string LaunchArguments { get; set; } = string.Empty;
 
     public string? SelectedServerId { get; set; }
+
+    public DateTimeOffset? ManagedClientLastCheckedAtUtc { get; set; }
+
+    public string? ManagedClientLastUpdateStatusText { get; set; }
+
+    public bool ManagedClientLastUpdateAvailable { get; set; }
+
+    public string? ManagedClientLastKnownLatestVersion { get; set; }
+
+    public string? ManagedClientLastNotifiedVersion { get; set; }
 
     public List<ServerEntry> Servers { get; set; } = [];
 }

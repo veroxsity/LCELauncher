@@ -76,51 +76,20 @@ public sealed class ClientInstallService
 
     public async Task<ManagedClientInstallInfo> InstallNightlyAsync(CancellationToken cancellationToken)
     {
-        Directory.CreateDirectory(_paths.DownloadsRoot);
-        Directory.CreateDirectory(_paths.InstallsRoot);
+        return await ReplaceManagedInstallFromNightlyZipAsync(
+            cancellationToken,
+            "Installing",
+            "Installed",
+            "No managed nightly install found. Installing the full nightly package.");
+    }
 
-        var release = await FetchNightlyReleaseAsync(cancellationToken);
-        _logger.Info($"Downloading {release.ZipAsset.Name} from {release.ReleaseName}.");
-
-        var downloadPath = await DownloadFileAsync(release.ZipAsset.DownloadUrl, _paths.NightlyDownloadPath, cancellationToken);
-        _logger.Info($"Saved nightly zip to {downloadPath}.");
-
-        var stagingRoot = Path.Combine(_paths.InstallsRoot, $".nightly-staging-{Guid.NewGuid():N}");
-        var installRoot = Path.Combine(_paths.InstallsRoot, $".nightly-install-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(stagingRoot);
-
-        try
-        {
-            _logger.Info("Extracting nightly client zip.");
-            ZipFile.ExtractToDirectory(downloadPath, stagingRoot);
-
-            var extractedRoot = FindInstallRoot(stagingRoot);
-            CopyDirectory(extractedRoot, installRoot);
-
-            if (!File.Exists(Path.Combine(installRoot, "Minecraft.Client.exe")))
-            {
-                throw new InvalidOperationException("Nightly install did not contain Minecraft.Client.exe.");
-            }
-
-            PreserveKnownUserFiles(_paths.NightlyInstallRoot, installRoot);
-
-            ReplaceDirectory(_paths.NightlyInstallRoot, installRoot);
-            WriteMetadata(new NightlyInstallMetadata(
-                release.ReleaseTag,
-                release.ReleaseName,
-                release.PublishedAtUtc,
-                DateTimeOffset.UtcNow,
-                release.ZipAsset.Sha256,
-                release.ExecutableAsset.Sha256));
-
-            _logger.Info($"Installed nightly client to {_paths.NightlyInstallRoot}.");
-            return GetManagedInstallInfo();
-        }
-        finally
-        {
-            TryDeleteDirectory(stagingRoot);
-            TryDeleteDirectory(installRoot);
-        }
+    public async Task<ManagedClientInstallInfo> RepairNightlyAsync(CancellationToken cancellationToken)
+    {
+        return await ReplaceManagedInstallFromNightlyZipAsync(
+            cancellationToken,
+            "Repairing",
+            "Repaired",
+            "Managed nightly install is missing or incomplete. Repairing it from the full nightly package.");
     }
 
     public async Task<ManagedClientInstallInfo> UpdateNightlyExecutableAsync(CancellationToken cancellationToken)
@@ -172,6 +141,65 @@ public sealed class ClientInstallService
 
         _logger.Info($"Updated managed nightly executable at {targetPath}.");
         return GetManagedInstallInfo();
+    }
+
+    private async Task<ManagedClientInstallInfo> ReplaceManagedInstallFromNightlyZipAsync(
+        CancellationToken cancellationToken,
+        string startVerb,
+        string completeVerb,
+        string missingInstallLogMessage)
+    {
+        Directory.CreateDirectory(_paths.DownloadsRoot);
+        Directory.CreateDirectory(_paths.InstallsRoot);
+
+        if (!HasManagedInstall())
+        {
+            _logger.Info(missingInstallLogMessage);
+        }
+
+        var release = await FetchNightlyReleaseAsync(cancellationToken);
+        _logger.Info($"{startVerb} managed nightly client from {release.ReleaseName}.");
+        _logger.Info($"Downloading {release.ZipAsset.Name} from {release.ReleaseName}.");
+
+        var downloadPath = await DownloadFileAsync(release.ZipAsset.DownloadUrl, _paths.NightlyDownloadPath, cancellationToken);
+        _logger.Info($"Saved nightly zip to {downloadPath}.");
+
+        var stagingRoot = Path.Combine(_paths.InstallsRoot, $".nightly-staging-{Guid.NewGuid():N}");
+        var installRoot = Path.Combine(_paths.InstallsRoot, $".nightly-install-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(stagingRoot);
+
+        try
+        {
+            _logger.Info("Extracting nightly client zip.");
+            ZipFile.ExtractToDirectory(downloadPath, stagingRoot);
+
+            var extractedRoot = FindInstallRoot(stagingRoot);
+            CopyDirectory(extractedRoot, installRoot);
+
+            if (!File.Exists(Path.Combine(installRoot, "Minecraft.Client.exe")))
+            {
+                throw new InvalidOperationException("Nightly install did not contain Minecraft.Client.exe.");
+            }
+
+            PreserveKnownUserFiles(_paths.NightlyInstallRoot, installRoot);
+
+            ReplaceDirectory(_paths.NightlyInstallRoot, installRoot);
+            WriteMetadata(new NightlyInstallMetadata(
+                release.ReleaseTag,
+                release.ReleaseName,
+                release.PublishedAtUtc,
+                DateTimeOffset.UtcNow,
+                release.ZipAsset.Sha256,
+                release.ExecutableAsset.Sha256));
+
+            _logger.Info($"{completeVerb} managed nightly client at {_paths.NightlyInstallRoot}.");
+            return GetManagedInstallInfo();
+        }
+        finally
+        {
+            TryDeleteDirectory(stagingRoot);
+            TryDeleteDirectory(installRoot);
+        }
     }
 
     private async Task<NightlyRelease> FetchNightlyReleaseAsync(CancellationToken cancellationToken)

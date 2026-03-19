@@ -59,6 +59,8 @@ public sealed partial class MainForm : Form
     private readonly NumericUpDown _firstBridgePortUpDown;
     private readonly CheckBox _closeBridgeOnExitCheckBox;
     private readonly TextBox _launchArgumentsTextBox;
+    private readonly CheckBox _checkForManagedClientUpdatesOnStartupCheckBox;
+    private readonly CheckBox _notifyWhenManagedClientUpdateAvailableCheckBox;
     private readonly Label _managedClientStatusLabel;
     private readonly Label _managedClientDetailsLabel;
     private readonly Label _managedClientUpdateLabel;
@@ -66,6 +68,7 @@ public sealed partial class MainForm : Form
     private readonly Button _checkNightlyUpdatesButton;
     private readonly Button _installNightlyButton;
     private readonly Button _updateNightlyButton;
+    private readonly Button _repairNightlyButton;
     private readonly Button _useManagedNightlyButton;
     private readonly Button _openManagedInstallButton;
 
@@ -142,6 +145,8 @@ public sealed partial class MainForm : Form
         _firstBridgePortUpDown = CreateNumericUpDown();
         _closeBridgeOnExitCheckBox = CreateCheckBox("Stop managed bridge when the launcher exits");
         _launchArgumentsTextBox = CreateTextBox();
+        _checkForManagedClientUpdatesOnStartupCheckBox = CreateCheckBox("Check nightly updates when the launcher starts");
+        _notifyWhenManagedClientUpdateAvailableCheckBox = CreateCheckBox("Notify me when a newer managed nightly build is available");
         _managedClientStatusLabel = CreateBodyLabel(string.Empty);
         _managedClientDetailsLabel = CreateBodyLabel(string.Empty);
         _managedClientUpdateLabel = CreateBodyLabel("Checking nightly release...");
@@ -149,6 +154,7 @@ public sealed partial class MainForm : Form
         _checkNightlyUpdatesButton = CreateSecondaryButton("CHECK FOR UPDATES");
         _installNightlyButton = CreateSecondaryButton("INSTALL NIGHTLY");
         _updateNightlyButton = CreateSecondaryButton("UPDATE CLIENT");
+        _repairNightlyButton = CreateSecondaryButton("REPAIR CLIENT");
         _useManagedNightlyButton = CreateSecondaryButton("USE MANAGED INSTALL");
         _openManagedInstallButton = CreateSecondaryButton("OPEN INSTALL FOLDER");
 
@@ -176,7 +182,6 @@ public sealed partial class MainForm : Form
         RefreshServerViews();
         RefreshStatus();
         RefreshManagedInstallStatus();
-        _ = RefreshManagedInstallUpdateStatusAsync();
         AppendExistingLogs();
         ShowPage(PageHome);
     }

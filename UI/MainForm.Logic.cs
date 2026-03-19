@@ -356,6 +356,7 @@ public sealed partial class MainForm
         _authModeComboBox.SelectedIndexChanged += (_, _) => RefreshStatus();
         _localUsernameTextBox.TextChanged += (_, _) => RefreshStatus();
         _serversListView.DoubleClick += (_, _) => EditSelectedServer();
+        Shown += async (_, _) => await InitializeManagedClientUpdateChecksAsync();
     }
 
     private void LoadConfigIntoControls()
@@ -373,6 +374,8 @@ public sealed partial class MainForm
         _firstBridgePortUpDown.Value = Math.Clamp(_config.FirstBridgePort, (int)_firstBridgePortUpDown.Minimum, (int)_firstBridgePortUpDown.Maximum);
         _closeBridgeOnExitCheckBox.Checked = _config.CloseBridgeOnExit;
         _launchArgumentsTextBox.Text = _config.LaunchArguments;
+        _checkForManagedClientUpdatesOnStartupCheckBox.Checked = _config.CheckForManagedClientUpdatesOnStartup;
+        _notifyWhenManagedClientUpdateAvailableCheckBox.Checked = _config.NotifyWhenManagedClientUpdateAvailable;
     }
 
     private void SaveConfigFromControls()
@@ -395,6 +398,8 @@ public sealed partial class MainForm
         _config.CloseBridgeOnExit = _closeBridgeOnExitCheckBox.Checked;
         _config.LaunchArguments = _launchArgumentsTextBox.Text.Trim();
         _config.SelectedServerId = (_selectedServerComboBox.SelectedItem as ServerSelectionItem)?.ServerId ?? _config.SelectedServerId;
+        _config.CheckForManagedClientUpdatesOnStartup = _checkForManagedClientUpdatesOnStartupCheckBox.Checked;
+        _config.NotifyWhenManagedClientUpdateAvailable = _notifyWhenManagedClientUpdateAvailableCheckBox.Checked;
 
         _serverManager.Normalize(_config);
         _configService.Save(_config);
@@ -511,6 +516,7 @@ public sealed partial class MainForm
         var installInfo = _clientInstallService.GetManagedInstallInfo();
         _installNightlyButton.Enabled = !busy;
         _updateNightlyButton.Enabled = !busy && installInfo.IsInstalled;
+        _repairNightlyButton.Enabled = !busy;
         _useManagedNightlyButton.Enabled = !busy && installInfo.IsInstalled;
         _openManagedInstallButton.Enabled = !busy && installInfo.IsInstalled;
     }
@@ -531,13 +537,10 @@ public sealed partial class MainForm
         _managedClientDetailsLabel.MaximumSize = new Size(720, 0);
         _managedClientUpdateLabel.MaximumSize = new Size(720, 0);
         _managedClientLastCheckedLabel.MaximumSize = new Size(720, 0);
-        _managedClientUpdateLabel.Text = installInfo.IsInstalled
-            ? "Checking nightly release..."
-            : "Install required";
-        _managedClientUpdateLabel.ForeColor = installInfo.IsInstalled ? TextMuted : AccentGold;
-        _managedClientLastCheckedLabel.Text = "Not checked yet";
-        _managedClientLastCheckedLabel.ForeColor = TextMuted;
+
+        RestoreManagedInstallUpdateState(installInfo);
         _updateNightlyButton.Enabled = installInfo.IsInstalled;
+        _repairNightlyButton.Enabled = true;
         _useManagedNightlyButton.Enabled = installInfo.IsInstalled;
         _openManagedInstallButton.Enabled = installInfo.IsInstalled;
     }
@@ -549,7 +552,7 @@ public sealed partial class MainForm
             SetBusy(true);
             _managedClientUpdateLabel.Text = "Checking nightly release...";
             _managedClientUpdateLabel.ForeColor = TextMuted;
-            await RefreshManagedInstallUpdateStatusAsync();
+            await RefreshManagedInstallUpdateStatusAsync(notifyIfAvailable: false);
         }
         finally
         {
@@ -557,60 +560,97 @@ public sealed partial class MainForm
         }
     }
 
-    private async Task RefreshManagedInstallUpdateStatusAsync()
+    private async Task InitializeManagedClientUpdateChecksAsync()
+    {
+        RefreshManagedInstallStatus();
+
+        if (!_config.CheckForManagedClientUpdatesOnStartup)
+        {
+            return;
+        }
+
+        await CheckForStartupUpdatesAsync();
+    }
+
+    private async Task CheckForStartupUpdatesAsync()
     {
         try
         {
+            SetBusy(true);
+            _managedClientUpdateLabel.Text = "Checking nightly release...";
+            _managedClientUpdateLabel.ForeColor = TextMuted;
+            await RefreshManagedInstallUpdateStatusAsync(notifyIfAvailable: _config.NotifyWhenManagedClientUpdateAvailable);
+        }
+        finally
+        {
+            SetBusy(false);
+        }
+    }
+
+    private async Task RefreshManagedInstallUpdateStatusAsync(bool notifyIfAvailable)
+    {
+        var checkedAtUtc = DateTimeOffset.UtcNow;
+
+        try
+        {
             var updateInfo = await _clientInstallService.GetNightlyUpdateInfoAsync(CancellationToken.None);
-
-            if (IsDisposed)
-            {
-                return;
-            }
-
-            if (InvokeRequired)
-            {
-                BeginInvoke(new Action(() => ApplyManagedInstallUpdateInfo(updateInfo)));
-            }
-            else
-            {
-                ApplyManagedInstallUpdateInfo(updateInfo);
-            }
+            ApplyManagedInstallUpdateInfo(updateInfo, checkedAtUtc, notifyIfAvailable);
         }
         catch (Exception ex)
         {
             _logger.Warn($"Nightly update check failed: {ex.Message}");
-
-            if (IsDisposed)
-            {
-                return;
-            }
-
-            if (InvokeRequired)
-            {
-                BeginInvoke(new Action(() =>
-                {
-                    _managedClientUpdateLabel.Text = "Update check failed";
-                    _managedClientUpdateLabel.ForeColor = DangerRed;
-                    _managedClientLastCheckedLabel.Text = $"Last checked: {DateTime.Now:yyyy-MM-dd HH:mm}";
-                    _managedClientLastCheckedLabel.ForeColor = TextMuted;
-                }));
-            }
-            else
-            {
-                _managedClientUpdateLabel.Text = "Update check failed";
-                _managedClientUpdateLabel.ForeColor = DangerRed;
-                _managedClientLastCheckedLabel.Text = $"Last checked: {DateTime.Now:yyyy-MM-dd HH:mm}";
-                _managedClientLastCheckedLabel.ForeColor = TextMuted;
-            }
+            ApplyManagedInstallUpdateFailure(checkedAtUtc);
         }
     }
 
-    private void ApplyManagedInstallUpdateInfo(ManagedClientUpdateInfo updateInfo)
+    private void ApplyManagedInstallUpdateInfo(ManagedClientUpdateInfo updateInfo, DateTimeOffset checkedAtUtc, bool notifyIfAvailable)
     {
+        _config.ManagedClientLastCheckedAtUtc = checkedAtUtc;
+        _config.ManagedClientLastUpdateStatusText = updateInfo.StatusText;
+        _config.ManagedClientLastUpdateAvailable = updateInfo.UpdateAvailable;
+        _config.ManagedClientLastKnownLatestVersion = string.IsNullOrWhiteSpace(updateInfo.LatestVersion) ? null : updateInfo.LatestVersion;
+
+        if (!updateInfo.UpdateAvailable)
+        {
+            _config.ManagedClientLastNotifiedVersion = null;
+        }
+
+        if (notifyIfAvailable &&
+            updateInfo.UpdateAvailable &&
+            !string.IsNullOrWhiteSpace(updateInfo.LatestVersion) &&
+            !string.Equals(_config.ManagedClientLastNotifiedVersion, updateInfo.LatestVersion, StringComparison.Ordinal))
+        {
+            _config.ManagedClientLastNotifiedVersion = updateInfo.LatestVersion;
+            _configService.Save(_config);
+
+            MessageBox.Show(
+                this,
+                $"A newer managed nightly client is available: {updateInfo.LatestVersion}",
+                "Client Update Available",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
+        else
+        {
+            _configService.Save(_config);
+        }
+
         _managedClientUpdateLabel.Text = updateInfo.StatusText;
         _managedClientUpdateLabel.ForeColor = updateInfo.UpdateAvailable ? AccentGold : TextMuted;
-        _managedClientLastCheckedLabel.Text = $"Last checked: {DateTime.Now:yyyy-MM-dd HH:mm}";
+        _managedClientLastCheckedLabel.Text = $"Last checked: {FormatTimestamp(checkedAtUtc)}";
+        _managedClientLastCheckedLabel.ForeColor = TextMuted;
+    }
+
+    private void ApplyManagedInstallUpdateFailure(DateTimeOffset checkedAtUtc)
+    {
+        _config.ManagedClientLastCheckedAtUtc = checkedAtUtc;
+        _config.ManagedClientLastUpdateStatusText = "Update check failed";
+        _config.ManagedClientLastUpdateAvailable = false;
+        _configService.Save(_config);
+
+        _managedClientUpdateLabel.Text = "Update check failed";
+        _managedClientUpdateLabel.ForeColor = DangerRed;
+        _managedClientLastCheckedLabel.Text = $"Last checked: {FormatTimestamp(checkedAtUtc)}";
         _managedClientLastCheckedLabel.ForeColor = TextMuted;
     }
 
@@ -626,7 +666,7 @@ public sealed partial class MainForm
             _configService.Save(_config);
             RefreshStatus();
             RefreshManagedInstallStatus();
-            await RefreshManagedInstallUpdateStatusAsync();
+            await RefreshManagedInstallUpdateStatusAsync(notifyIfAvailable: false);
         }
         catch (Exception ex)
         {
@@ -637,7 +677,7 @@ public sealed partial class MainForm
         {
             SetBusy(false);
             RefreshManagedInstallStatus();
-            await RefreshManagedInstallUpdateStatusAsync();
+            await RefreshManagedInstallUpdateStatusAsync(notifyIfAvailable: false);
         }
     }
 
@@ -657,7 +697,7 @@ public sealed partial class MainForm
 
             RefreshStatus();
             RefreshManagedInstallStatus();
-            await RefreshManagedInstallUpdateStatusAsync();
+            await RefreshManagedInstallUpdateStatusAsync(notifyIfAvailable: false);
         }
         catch (Exception ex)
         {
@@ -668,7 +708,54 @@ public sealed partial class MainForm
         {
             SetBusy(false);
             RefreshManagedInstallStatus();
-            await RefreshManagedInstallUpdateStatusAsync();
+            await RefreshManagedInstallUpdateStatusAsync(notifyIfAvailable: false);
+        }
+    }
+
+    private async Task RepairManagedNightlyAsync()
+    {
+        var installInfo = _clientInstallService.GetManagedInstallInfo();
+        var prompt = installInfo.IsInstalled
+            ? "Repair will reinstall the full nightly client into AppData and preserve uid.dat, username.txt, and servers.db. Continue?"
+            : "No managed nightly install was found. Repair will install the full nightly client into AppData. Continue?";
+        var result = MessageBox.Show(
+            this,
+            prompt,
+            installInfo.IsInstalled ? "Repair Client" : "Install Client",
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Question);
+
+        if (result != DialogResult.Yes)
+        {
+            return;
+        }
+
+        try
+        {
+            SetBusy(true);
+            var repairedInstall = await _clientInstallService.RepairNightlyAsync(CancellationToken.None);
+            if (_config.PreferManagedClientInstall || !installInfo.IsInstalled || PathsEqual(_clientExecutableTextBox.Text, installInfo.ClientExecutablePath))
+            {
+                _config.PreferManagedClientInstall = true;
+                _config.ClientExecutablePath = repairedInstall.ClientExecutablePath;
+                _clientExecutableTextBox.Text = repairedInstall.ClientExecutablePath;
+                _configService.Save(_config);
+            }
+
+            RefreshStatus();
+            RefreshManagedInstallStatus();
+            await RefreshManagedInstallUpdateStatusAsync(notifyIfAvailable: false);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex.Message);
+            MessageBox.Show(this, ex.Message, "Repair Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally
+        {
+            SetBusy(false);
+            RefreshManagedInstallStatus();
+            await RefreshManagedInstallUpdateStatusAsync(notifyIfAvailable: false);
         }
     }
 
@@ -687,7 +774,7 @@ public sealed partial class MainForm
         _configService.Save(_config);
         RefreshStatus();
         RefreshManagedInstallStatus();
-        _ = RefreshManagedInstallUpdateStatusAsync();
+        _ = RefreshManagedInstallUpdateStatusAsync(notifyIfAvailable: false);
     }
 
     private void AddServer()
@@ -790,6 +877,31 @@ public sealed partial class MainForm
 
     private static string FormatTimestamp(DateTimeOffset? timestamp) =>
         timestamp?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "Unknown";
+
+    private void RestoreManagedInstallUpdateState(ManagedClientInstallInfo installInfo)
+    {
+        if (!installInfo.IsInstalled)
+        {
+            _managedClientUpdateLabel.Text = "Install required";
+            _managedClientUpdateLabel.ForeColor = AccentGold;
+            _managedClientLastCheckedLabel.Text = _config.ManagedClientLastCheckedAtUtc is null
+                ? "Not checked yet"
+                : $"Last checked: {FormatTimestamp(_config.ManagedClientLastCheckedAtUtc)}";
+            _managedClientLastCheckedLabel.ForeColor = TextMuted;
+            return;
+        }
+
+        _managedClientUpdateLabel.Text = string.IsNullOrWhiteSpace(_config.ManagedClientLastUpdateStatusText)
+            ? "Not checked yet"
+            : _config.ManagedClientLastUpdateStatusText;
+        _managedClientUpdateLabel.ForeColor = string.Equals(_config.ManagedClientLastUpdateStatusText, "Update check failed", StringComparison.Ordinal)
+            ? DangerRed
+            : _config.ManagedClientLastUpdateAvailable ? AccentGold : TextMuted;
+        _managedClientLastCheckedLabel.Text = _config.ManagedClientLastCheckedAtUtc is null
+            ? "Not checked yet"
+            : $"Last checked: {FormatTimestamp(_config.ManagedClientLastCheckedAtUtc)}";
+        _managedClientLastCheckedLabel.ForeColor = TextMuted;
+    }
 
     private void AppendExistingLogs()
     {
