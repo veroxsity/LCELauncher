@@ -23,18 +23,7 @@ public sealed class ClientInstallService
 
     public ManagedClientInstallInfo GetManagedInstallInfo()
     {
-        NightlyInstallMetadata? metadata = null;
-        if (File.Exists(_paths.NightlyMetadataPath))
-        {
-            try
-            {
-                metadata = JsonSerializer.Deserialize<NightlyInstallMetadata>(File.ReadAllText(_paths.NightlyMetadataPath));
-            }
-            catch (Exception ex)
-            {
-                _logger.Warn($"Failed to read nightly install metadata: {ex.Message}");
-            }
-        }
+        var metadata = ReadMetadata();
 
         return new ManagedClientInstallInfo
         {
@@ -44,6 +33,44 @@ public sealed class ClientInstallService
             DisplayVersion = metadata?.ReleaseName ?? "Nightly",
             PublishedAtUtc = metadata?.PublishedAtUtc,
             InstalledAtUtc = metadata?.InstalledAtUtc,
+        };
+    }
+
+    public async Task<ManagedClientUpdateInfo> GetNightlyUpdateInfoAsync(CancellationToken cancellationToken)
+    {
+        var installInfo = GetManagedInstallInfo();
+        if (!installInfo.IsInstalled)
+        {
+            return new ManagedClientUpdateInfo
+            {
+                IsInstalled = false,
+                CheckedRemotely = false,
+                UpdateAvailable = false,
+                CurrentVersion = "Not installed",
+                LatestVersion = "Nightly",
+                StatusText = "Managed nightly client is not installed.",
+            };
+        }
+
+        var release = await FetchNightlyReleaseAsync(cancellationToken);
+        var metadata = ReadMetadata();
+        var currentVersion = metadata?.ReleaseName ?? installInfo.DisplayVersion;
+        var updateAvailable = metadata is null ||
+            (!string.IsNullOrWhiteSpace(release.ExecutableAsset.Sha256) &&
+             !string.Equals(metadata.ExecutableSha256, release.ExecutableAsset.Sha256, StringComparison.OrdinalIgnoreCase)) ||
+            metadata.PublishedAtUtc != release.PublishedAtUtc;
+
+        return new ManagedClientUpdateInfo
+        {
+            IsInstalled = true,
+            CheckedRemotely = true,
+            UpdateAvailable = updateAvailable,
+            CurrentVersion = currentVersion,
+            LatestVersion = release.ReleaseName,
+            LatestPublishedAtUtc = release.PublishedAtUtc,
+            StatusText = updateAvailable
+                ? $"Update available: {release.ReleaseName}"
+                : $"Up to date: {release.ReleaseName}",
         };
     }
 
@@ -105,6 +132,15 @@ public sealed class ClientInstallService
         }
 
         var release = await FetchNightlyReleaseAsync(cancellationToken);
+        var metadata = ReadMetadata();
+        if (metadata is not null &&
+            string.Equals(metadata.ExecutableSha256, release.ExecutableAsset.Sha256, StringComparison.OrdinalIgnoreCase) &&
+            metadata.PublishedAtUtc == release.PublishedAtUtc)
+        {
+            _logger.Info("Managed nightly client is already up to date.");
+            return GetManagedInstallInfo();
+        }
+
         _logger.Info($"Downloading {release.ExecutableAsset.Name} for lightweight nightly update.");
 
         Directory.CreateDirectory(_paths.NightlyInstallRoot);
@@ -256,6 +292,24 @@ public sealed class ClientInstallService
         Directory.CreateDirectory(_paths.NightlyInstallRoot);
         var json = JsonSerializer.Serialize(metadata, new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllText(_paths.NightlyMetadataPath, json);
+    }
+
+    private NightlyInstallMetadata? ReadMetadata()
+    {
+        if (!File.Exists(_paths.NightlyMetadataPath))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<NightlyInstallMetadata>(File.ReadAllText(_paths.NightlyMetadataPath));
+        }
+        catch (Exception ex)
+        {
+            _logger.Warn($"Failed to read nightly install metadata: {ex.Message}");
+            return null;
+        }
     }
 
     private static void TryDeleteDirectory(string path)

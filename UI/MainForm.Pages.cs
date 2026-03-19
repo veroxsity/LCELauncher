@@ -198,6 +198,8 @@ public sealed partial class MainForm
     {
         _managedClientStatusLabel.Margin = new Padding(0, 8, 0, 0);
         _managedClientDetailsLabel.Margin = new Padding(0, 8, 0, 0);
+        _managedClientUpdateLabel.Margin = new Padding(0, 8, 0, 0);
+        _managedClientLastCheckedLabel.Margin = new Padding(0, 8, 0, 0);
 
         var actions = new FlowLayoutPanel
         {
@@ -211,16 +213,19 @@ public sealed partial class MainForm
         };
         EnableDoubleBuffering(actions);
 
+        _checkNightlyUpdatesButton.Margin = new Padding(0, 0, 10, 10);
         _installNightlyButton.Margin = new Padding(0, 0, 10, 10);
         _updateNightlyButton.Margin = new Padding(0, 0, 10, 10);
         _useManagedNightlyButton.Margin = new Padding(0, 0, 10, 10);
         _openManagedInstallButton.Margin = new Padding(0, 0, 0, 10);
 
+        _checkNightlyUpdatesButton.Click += async (_, _) => await CheckForUpdatesAsync();
         _installNightlyButton.Click += async (_, _) => await InstallNightlyAsync();
         _updateNightlyButton.Click += async (_, _) => await UpdateManagedNightlyAsync();
         _useManagedNightlyButton.Click += (_, _) => UseManagedNightlyInstall();
         _openManagedInstallButton.Click += (_, _) => OpenDirectorySafely(_appPaths.NightlyInstallRoot);
 
+        actions.Controls.Add(_checkNightlyUpdatesButton);
         actions.Controls.Add(_installNightlyButton);
         actions.Controls.Add(_updateNightlyButton);
         actions.Controls.Add(_useManagedNightlyButton);
@@ -231,6 +236,8 @@ public sealed partial class MainForm
             BuildFormRow("Install Channel", CreateBodyLabel("smartcmd nightly")),
             BuildFormRow("Managed Status", _managedClientStatusLabel),
             BuildFormRow("Install Details", _managedClientDetailsLabel),
+            BuildFormRow("Update Status", _managedClientUpdateLabel),
+            BuildFormRow("Last Checked", _managedClientLastCheckedLabel),
             actions,
         });
     }

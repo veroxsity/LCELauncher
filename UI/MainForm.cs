@@ -61,6 +61,9 @@ public sealed partial class MainForm : Form
     private readonly TextBox _launchArgumentsTextBox;
     private readonly Label _managedClientStatusLabel;
     private readonly Label _managedClientDetailsLabel;
+    private readonly Label _managedClientUpdateLabel;
+    private readonly Label _managedClientLastCheckedLabel;
+    private readonly Button _checkNightlyUpdatesButton;
     private readonly Button _installNightlyButton;
     private readonly Button _updateNightlyButton;
     private readonly Button _useManagedNightlyButton;
@@ -141,6 +144,9 @@ public sealed partial class MainForm : Form
         _launchArgumentsTextBox = CreateTextBox();
         _managedClientStatusLabel = CreateBodyLabel(string.Empty);
         _managedClientDetailsLabel = CreateBodyLabel(string.Empty);
+        _managedClientUpdateLabel = CreateBodyLabel("Checking nightly release...");
+        _managedClientLastCheckedLabel = CreateBodyLabel("Not checked yet");
+        _checkNightlyUpdatesButton = CreateSecondaryButton("CHECK FOR UPDATES");
         _installNightlyButton = CreateSecondaryButton("INSTALL NIGHTLY");
         _updateNightlyButton = CreateSecondaryButton("UPDATE CLIENT");
         _useManagedNightlyButton = CreateSecondaryButton("USE MANAGED INSTALL");
@@ -170,6 +176,7 @@ public sealed partial class MainForm : Form
         RefreshServerViews();
         RefreshStatus();
         RefreshManagedInstallStatus();
+        _ = RefreshManagedInstallUpdateStatusAsync();
         AppendExistingLogs();
         ShowPage(PageHome);
     }
