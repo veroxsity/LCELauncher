@@ -358,7 +358,7 @@ public sealed partial class MainForm
         _localUsernameTextBox.TextChanged += (_, _) => RefreshStatus();
         _syncUsernameFromOnlineAccountCheckBox.CheckedChanged += (_, _) => RefreshStatus();
         _serversListView.DoubleClick += (_, _) => EditSelectedServer();
-        Shown += async (_, _) => await InitializeManagedClientUpdateChecksAsync();
+        Shown += async (_, _) => await InitializeManagedRuntimeUpdateChecksAsync();
     }
 
     private void LoadConfigIntoControls()
@@ -378,6 +378,8 @@ public sealed partial class MainForm
         _launchArgumentsTextBox.Text = _config.LaunchArguments;
         _syncUsernameFromOnlineAccountCheckBox.Checked = _config.SyncUsernameFromOnlineAccount;
         _microsoftAuthClientIdTextBox.Text = _config.MicrosoftAuthClientId ?? _launcherAuthService.GetEffectiveClientId();
+        _checkForManagedBridgeUpdatesOnStartupCheckBox.Checked = _config.CheckForManagedBridgeUpdatesOnStartup;
+        _notifyWhenManagedBridgeUpdateAvailableCheckBox.Checked = _config.NotifyWhenManagedBridgeUpdateAvailable;
         _checkForManagedClientUpdatesOnStartupCheckBox.Checked = _config.CheckForManagedClientUpdatesOnStartup;
         _notifyWhenManagedClientUpdateAvailableCheckBox.Checked = _config.NotifyWhenManagedClientUpdateAvailable;
     }
@@ -413,6 +415,8 @@ public sealed partial class MainForm
         _config.MicrosoftAuthClientId = string.IsNullOrWhiteSpace(_microsoftAuthClientIdTextBox.Text)
             ? LauncherAuthService.DefaultCompatibilityClientId
             : _microsoftAuthClientIdTextBox.Text.Trim();
+        _config.CheckForManagedBridgeUpdatesOnStartup = _checkForManagedBridgeUpdatesOnStartupCheckBox.Checked;
+        _config.NotifyWhenManagedBridgeUpdateAvailable = _notifyWhenManagedBridgeUpdateAvailableCheckBox.Checked;
         _config.SelectedServerId = (_selectedServerComboBox.SelectedItem as ServerSelectionItem)?.ServerId ?? _config.SelectedServerId;
         _config.CheckForManagedClientUpdatesOnStartup = _checkForManagedClientUpdatesOnStartupCheckBox.Checked;
         _config.NotifyWhenManagedClientUpdateAvailable = _notifyWhenManagedClientUpdateAvailableCheckBox.Checked;
@@ -545,6 +549,7 @@ public sealed partial class MainForm
         _launchClientButton.Enabled = !busy;
         _launchSelectedServerButton.Enabled = !busy && _authModeComboBox.SelectedIndex != 1;
         _stopBridgeButton.Enabled = !busy;
+        _checkBridgeUpdatesButton.Enabled = !busy;
         _checkNightlyUpdatesButton.Enabled = !busy;
         var installInfo = _clientInstallService.GetManagedInstallInfo();
         var managedBridge = _bridgeInstallService.GetManagedInstallInfo();
@@ -555,6 +560,7 @@ public sealed partial class MainForm
         _useManagedNightlyButton.Enabled = !busy && installInfo.IsInstalled;
         _openManagedInstallButton.Enabled = !busy && installInfo.IsInstalled;
         _installBridgeButton.Enabled = !busy;
+        _updateBridgeButton.Enabled = !busy && managedBridge.IsInstalled;
         _useManagedBridgeButton.Enabled = !busy && managedBridge.IsInstalled;
         _openManagedBridgeButton.Enabled = !busy && managedBridge.IsInstalled;
         _signInButton.Enabled = !busy;
@@ -571,13 +577,42 @@ public sealed partial class MainForm
             : "Not installed";
 
         _managedBridgeDetailsLabel.Text = installInfo.IsInstalled
-            ? $"Root: {installInfo.InstallRoot}{Environment.NewLine}Jar: {Path.GetFileName(installInfo.BridgeJarPath)}{Environment.NewLine}Installed: {FormatTimestamp(installInfo.InstalledAtUtc)}"
-            : $"Expected install root: {installInfo.InstallRoot}{Environment.NewLine}Install Bridge will copy the bundled launcher bridge runtime into AppData.";
+            ? $"Root: {installInfo.InstallRoot}{Environment.NewLine}Published: {FormatTimestamp(installInfo.PublishedAtUtc)}{Environment.NewLine}Installed: {FormatTimestamp(installInfo.InstalledAtUtc)}"
+            : $"Expected install root: {installInfo.InstallRoot}{Environment.NewLine}Use Install Bridge to download the latest LCEBridge release jar into AppData.";
 
         _managedBridgeDetailsLabel.MaximumSize = new Size(720, 0);
+        _managedBridgeUpdateLabel.MaximumSize = new Size(720, 0);
+        _managedBridgeLastCheckedLabel.MaximumSize = new Size(720, 0);
+        RestoreManagedBridgeUpdateState(installInfo);
         _installBridgeButton.Enabled = true;
+        _updateBridgeButton.Enabled = installInfo.IsInstalled;
         _useManagedBridgeButton.Enabled = installInfo.IsInstalled;
         _openManagedBridgeButton.Enabled = installInfo.IsInstalled;
+    }
+
+    private void RestoreManagedBridgeUpdateState(ManagedBridgeInstallInfo installInfo)
+    {
+        if (!installInfo.IsInstalled)
+        {
+            _managedBridgeUpdateLabel.Text = "Install required";
+            _managedBridgeUpdateLabel.ForeColor = AccentGold;
+            _managedBridgeLastCheckedLabel.Text = _config.ManagedBridgeLastCheckedAtUtc is null
+                ? "Not checked yet"
+                : $"Last checked: {FormatTimestamp(_config.ManagedBridgeLastCheckedAtUtc)}";
+            _managedBridgeLastCheckedLabel.ForeColor = TextMuted;
+            return;
+        }
+
+        _managedBridgeUpdateLabel.Text = string.IsNullOrWhiteSpace(_config.ManagedBridgeLastUpdateStatusText)
+            ? "Not checked yet"
+            : _config.ManagedBridgeLastUpdateStatusText;
+        _managedBridgeUpdateLabel.ForeColor = string.Equals(_config.ManagedBridgeLastUpdateStatusText, "Update check failed", StringComparison.Ordinal)
+            ? DangerRed
+            : _config.ManagedBridgeLastUpdateAvailable ? AccentGold : TextMuted;
+        _managedBridgeLastCheckedLabel.Text = _config.ManagedBridgeLastCheckedAtUtc is null
+            ? "Not checked yet"
+            : $"Last checked: {FormatTimestamp(_config.ManagedBridgeLastCheckedAtUtc)}";
+        _managedBridgeLastCheckedLabel.ForeColor = TextMuted;
     }
 
     private void RefreshOnlineAccountStatus()
@@ -635,9 +670,30 @@ public sealed partial class MainForm
         }
     }
 
-    private async Task InitializeManagedClientUpdateChecksAsync()
+    private async Task CheckBridgeForUpdatesAsync()
     {
+        try
+        {
+            SetBusy(true);
+            _managedBridgeUpdateLabel.Text = "Checking latest bridge release...";
+            _managedBridgeUpdateLabel.ForeColor = TextMuted;
+            await RefreshManagedBridgeUpdateStatusAsync(notifyIfAvailable: false);
+        }
+        finally
+        {
+            SetBusy(false);
+        }
+    }
+
+    private async Task InitializeManagedRuntimeUpdateChecksAsync()
+    {
+        RefreshManagedBridgeStatus();
         RefreshManagedInstallStatus();
+
+        if (_config.CheckForManagedBridgeUpdatesOnStartup)
+        {
+            await CheckForStartupBridgeUpdatesAsync();
+        }
 
         if (!_config.CheckForManagedClientUpdatesOnStartup)
         {
@@ -645,6 +701,21 @@ public sealed partial class MainForm
         }
 
         await CheckForStartupUpdatesAsync();
+    }
+
+    private async Task CheckForStartupBridgeUpdatesAsync()
+    {
+        try
+        {
+            SetBusy(true);
+            _managedBridgeUpdateLabel.Text = "Checking latest bridge release...";
+            _managedBridgeUpdateLabel.ForeColor = TextMuted;
+            await RefreshManagedBridgeUpdateStatusAsync(notifyIfAvailable: _config.NotifyWhenManagedBridgeUpdateAvailable);
+        }
+        finally
+        {
+            SetBusy(false);
+        }
     }
 
     private async Task CheckForStartupUpdatesAsync()
@@ -676,6 +747,73 @@ public sealed partial class MainForm
             _logger.Warn($"Nightly update check failed: {ex.Message}");
             ApplyManagedInstallUpdateFailure(checkedAtUtc);
         }
+    }
+
+    private async Task RefreshManagedBridgeUpdateStatusAsync(bool notifyIfAvailable)
+    {
+        var checkedAtUtc = DateTimeOffset.UtcNow;
+
+        try
+        {
+            var updateInfo = await _bridgeInstallService.GetLatestBridgeUpdateInfoAsync(CancellationToken.None);
+            ApplyManagedBridgeUpdateInfo(updateInfo, checkedAtUtc, notifyIfAvailable);
+        }
+        catch (Exception ex)
+        {
+            _logger.Warn($"Bridge update check failed: {ex.Message}");
+            ApplyManagedBridgeUpdateFailure(checkedAtUtc);
+        }
+    }
+
+    private void ApplyManagedBridgeUpdateInfo(ManagedBridgeUpdateInfo updateInfo, DateTimeOffset checkedAtUtc, bool notifyIfAvailable)
+    {
+        _config.ManagedBridgeLastCheckedAtUtc = checkedAtUtc;
+        _config.ManagedBridgeLastUpdateStatusText = updateInfo.StatusText;
+        _config.ManagedBridgeLastUpdateAvailable = updateInfo.UpdateAvailable;
+        _config.ManagedBridgeLastKnownLatestVersion = string.IsNullOrWhiteSpace(updateInfo.LatestVersion) ? null : updateInfo.LatestVersion;
+
+        if (!updateInfo.UpdateAvailable)
+        {
+            _config.ManagedBridgeLastNotifiedVersion = null;
+        }
+
+        if (notifyIfAvailable &&
+            updateInfo.UpdateAvailable &&
+            !string.IsNullOrWhiteSpace(updateInfo.LatestVersion) &&
+            !string.Equals(_config.ManagedBridgeLastNotifiedVersion, updateInfo.LatestVersion, StringComparison.Ordinal))
+        {
+            _config.ManagedBridgeLastNotifiedVersion = updateInfo.LatestVersion;
+            _configService.Save(_config);
+
+            MessageBox.Show(
+                this,
+                $"A newer managed bridge release is available: {updateInfo.LatestVersion}",
+                "Bridge Update Available",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
+        else
+        {
+            _configService.Save(_config);
+        }
+
+        _managedBridgeUpdateLabel.Text = updateInfo.StatusText;
+        _managedBridgeUpdateLabel.ForeColor = updateInfo.UpdateAvailable ? AccentGold : TextMuted;
+        _managedBridgeLastCheckedLabel.Text = $"Last checked: {FormatTimestamp(checkedAtUtc)}";
+        _managedBridgeLastCheckedLabel.ForeColor = TextMuted;
+    }
+
+    private void ApplyManagedBridgeUpdateFailure(DateTimeOffset checkedAtUtc)
+    {
+        _config.ManagedBridgeLastCheckedAtUtc = checkedAtUtc;
+        _config.ManagedBridgeLastUpdateStatusText = "Update check failed";
+        _config.ManagedBridgeLastUpdateAvailable = false;
+        _configService.Save(_config);
+
+        _managedBridgeUpdateLabel.Text = "Update check failed";
+        _managedBridgeUpdateLabel.ForeColor = DangerRed;
+        _managedBridgeLastCheckedLabel.Text = $"Last checked: {FormatTimestamp(checkedAtUtc)}";
+        _managedBridgeLastCheckedLabel.ForeColor = TextMuted;
     }
 
     private void ApplyManagedInstallUpdateInfo(ManagedClientUpdateInfo updateInfo, DateTimeOffset checkedAtUtc, bool notifyIfAvailable)
@@ -924,13 +1062,14 @@ public sealed partial class MainForm
         try
         {
             SetBusy(true);
-            var installInfo = await _bridgeInstallService.EnsureManagedBridgeInstalledAsync(CancellationToken.None);
+            var installInfo = await _bridgeInstallService.InstallLatestReleaseAsync(CancellationToken.None);
             _config.PreferManagedBridgeInstall = true;
             _config.BridgeJarPath = installInfo.BridgeJarPath;
             _bridgeJarTextBox.Text = installInfo.BridgeJarPath;
             _configService.Save(_config);
             RefreshManagedBridgeStatus();
             RefreshStatus();
+            await RefreshManagedBridgeUpdateStatusAsync(notifyIfAvailable: false);
         }
         catch (Exception ex)
         {
@@ -941,6 +1080,37 @@ public sealed partial class MainForm
         {
             SetBusy(false);
             RefreshManagedBridgeStatus();
+        }
+    }
+
+    private async Task UpdateManagedBridgeAsync()
+    {
+        try
+        {
+            SetBusy(true);
+            var installInfo = await _bridgeInstallService.UpdateBridgeAsync(CancellationToken.None);
+            if (_config.PreferManagedBridgeInstall || PathsEqual(_bridgeJarTextBox.Text, installInfo.BridgeJarPath))
+            {
+                _config.PreferManagedBridgeInstall = true;
+                _config.BridgeJarPath = installInfo.BridgeJarPath;
+                _bridgeJarTextBox.Text = installInfo.BridgeJarPath;
+                _configService.Save(_config);
+            }
+
+            RefreshManagedBridgeStatus();
+            RefreshStatus();
+            await RefreshManagedBridgeUpdateStatusAsync(notifyIfAvailable: false);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex.Message);
+            MessageBox.Show(this, ex.Message, "Bridge Update Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally
+        {
+            SetBusy(false);
+            RefreshManagedBridgeStatus();
+            await RefreshManagedBridgeUpdateStatusAsync(notifyIfAvailable: false);
         }
     }
 

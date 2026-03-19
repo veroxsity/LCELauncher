@@ -69,11 +69,15 @@ public sealed partial class MainForm : Form
     private readonly Label _onlineAccountDetailsLabel;
     private readonly Label _managedBridgeStatusLabel;
     private readonly Label _managedBridgeDetailsLabel;
+    private readonly Label _managedBridgeUpdateLabel;
+    private readonly Label _managedBridgeLastCheckedLabel;
     private readonly Label _managedClientStatusLabel;
     private readonly Label _managedClientDetailsLabel;
     private readonly Label _managedClientUpdateLabel;
     private readonly Label _managedClientLastCheckedLabel;
     private readonly Button _installBridgeButton;
+    private readonly Button _checkBridgeUpdatesButton;
+    private readonly Button _updateBridgeButton;
     private readonly Button _useManagedBridgeButton;
     private readonly Button _openManagedBridgeButton;
     private readonly Button _signInButton;
@@ -85,6 +89,8 @@ public sealed partial class MainForm : Form
     private readonly Button _repairNightlyButton;
     private readonly Button _useManagedNightlyButton;
     private readonly Button _openManagedInstallButton;
+    private readonly CheckBox _checkForManagedBridgeUpdatesOnStartupCheckBox;
+    private readonly CheckBox _notifyWhenManagedBridgeUpdateAvailableCheckBox;
 
     private readonly TextBox _logsTextBox;
 
@@ -169,11 +175,15 @@ public sealed partial class MainForm : Form
         _onlineAccountDetailsLabel = CreateBodyLabel(string.Empty);
         _managedBridgeStatusLabel = CreateBodyLabel(string.Empty);
         _managedBridgeDetailsLabel = CreateBodyLabel(string.Empty);
+        _managedBridgeUpdateLabel = CreateBodyLabel("Checking latest bridge release...");
+        _managedBridgeLastCheckedLabel = CreateBodyLabel("Not checked yet");
         _managedClientStatusLabel = CreateBodyLabel(string.Empty);
         _managedClientDetailsLabel = CreateBodyLabel(string.Empty);
         _managedClientUpdateLabel = CreateBodyLabel("Checking nightly release...");
         _managedClientLastCheckedLabel = CreateBodyLabel("Not checked yet");
         _installBridgeButton = CreateSecondaryButton("INSTALL BRIDGE");
+        _checkBridgeUpdatesButton = CreateSecondaryButton("CHECK FOR UPDATES");
+        _updateBridgeButton = CreateSecondaryButton("UPDATE BRIDGE");
         _useManagedBridgeButton = CreateSecondaryButton("USE MANAGED BRIDGE");
         _openManagedBridgeButton = CreateSecondaryButton("OPEN BRIDGE FOLDER");
         _signInButton = CreateSecondaryButton("SIGN IN");
@@ -185,6 +195,8 @@ public sealed partial class MainForm : Form
         _repairNightlyButton = CreateSecondaryButton("REPAIR CLIENT");
         _useManagedNightlyButton = CreateSecondaryButton("USE MANAGED INSTALL");
         _openManagedInstallButton = CreateSecondaryButton("OPEN INSTALL FOLDER");
+        _checkForManagedBridgeUpdatesOnStartupCheckBox = CreateCheckBox("Check bridge updates when the launcher starts");
+        _notifyWhenManagedBridgeUpdateAvailableCheckBox = CreateCheckBox("Notify me when a newer managed bridge release is available");
 
         _logsTextBox = CreateLogsTextBox();
 

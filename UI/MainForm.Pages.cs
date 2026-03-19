@@ -260,6 +260,8 @@ public sealed partial class MainForm
     {
         _managedBridgeStatusLabel.Margin = new Padding(0, 8, 0, 0);
         _managedBridgeDetailsLabel.Margin = new Padding(0, 8, 0, 0);
+        _managedBridgeUpdateLabel.Margin = new Padding(0, 8, 0, 0);
+        _managedBridgeLastCheckedLabel.Margin = new Padding(0, 8, 0, 0);
 
         var actions = new FlowLayoutPanel
         {
@@ -273,23 +275,33 @@ public sealed partial class MainForm
         };
         EnableDoubleBuffering(actions);
 
+        _checkBridgeUpdatesButton.Margin = new Padding(0, 0, 10, 10);
         _installBridgeButton.Margin = new Padding(0, 0, 10, 10);
+        _updateBridgeButton.Margin = new Padding(0, 0, 10, 10);
         _useManagedBridgeButton.Margin = new Padding(0, 0, 10, 10);
         _openManagedBridgeButton.Margin = new Padding(0, 0, 0, 10);
 
+        _checkBridgeUpdatesButton.Click += async (_, _) => await CheckBridgeForUpdatesAsync();
         _installBridgeButton.Click += async (_, _) => await InstallManagedBridgeAsync();
+        _updateBridgeButton.Click += async (_, _) => await UpdateManagedBridgeAsync();
         _useManagedBridgeButton.Click += (_, _) => UseManagedBridgeInstall();
         _openManagedBridgeButton.Click += (_, _) => OpenDirectorySafely(_appPaths.ManagedBridgeInstallRoot);
 
+        actions.Controls.Add(_checkBridgeUpdatesButton);
         actions.Controls.Add(_installBridgeButton);
+        actions.Controls.Add(_updateBridgeButton);
         actions.Controls.Add(_useManagedBridgeButton);
         actions.Controls.Add(_openManagedBridgeButton);
 
         return BuildSettingsCard("Managed Bridge", new Control[]
         {
-            BuildFormRow("Install Channel", CreateBodyLabel("bundled launcher bridge")),
+            BuildFormRow("Install Channel", CreateBodyLabel("latest LCEBridge GitHub release")),
             BuildFormRow("Managed Status", _managedBridgeStatusLabel),
             BuildFormRow("Install Details", _managedBridgeDetailsLabel),
+            BuildFormRow("Update Status", _managedBridgeUpdateLabel),
+            BuildFormRow("Last Checked", _managedBridgeLastCheckedLabel),
+            BuildFormRow("Check On Startup", _checkForManagedBridgeUpdatesOnStartupCheckBox),
+            BuildFormRow("Notify On Update", _notifyWhenManagedBridgeUpdateAvailableCheckBox),
             actions,
         });
     }

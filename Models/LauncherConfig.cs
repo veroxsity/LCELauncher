@@ -10,6 +10,10 @@ public sealed class LauncherConfig
 
     public bool NotifyWhenManagedClientUpdateAvailable { get; set; } = true;
 
+    public bool CheckForManagedBridgeUpdatesOnStartup { get; set; } = true;
+
+    public bool NotifyWhenManagedBridgeUpdateAvailable { get; set; } = true;
+
     public string? ClientExecutablePath { get; set; }
 
     public string? BridgeJarPath { get; set; }
@@ -41,6 +45,16 @@ public sealed class LauncherConfig
     public string? ManagedClientLastKnownLatestVersion { get; set; }
 
     public string? ManagedClientLastNotifiedVersion { get; set; }
+
+    public DateTimeOffset? ManagedBridgeLastCheckedAtUtc { get; set; }
+
+    public string? ManagedBridgeLastUpdateStatusText { get; set; }
+
+    public bool ManagedBridgeLastUpdateAvailable { get; set; }
+
+    public string? ManagedBridgeLastKnownLatestVersion { get; set; }
+
+    public string? ManagedBridgeLastNotifiedVersion { get; set; }
 
     public List<ServerEntry> Servers { get; set; } = [];
 }

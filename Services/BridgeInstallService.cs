@@ -1,9 +1,14 @@
+using System.Net.Http.Headers;
+using System.Text.Json;
 using LceLauncher.Models;
 
 namespace LceLauncher.Services;
 
 public sealed class BridgeInstallService
 {
+    private static readonly Uri LatestReleaseUri = new("https://api.github.com/repos/veroxsity/LCEBridge/releases/latest");
+    private static readonly HttpClient HttpClient = CreateHttpClient();
+
     private readonly AppPaths _paths;
     private readonly LauncherLogger _logger;
 
@@ -15,49 +20,189 @@ public sealed class BridgeInstallService
 
     public ManagedBridgeInstallInfo GetManagedInstallInfo()
     {
-        var jarPath = _paths.ManagedBridgeJarPath;
-        var fileInfo = File.Exists(jarPath) ? new FileInfo(jarPath) : null;
+        var metadata = ReadMetadata();
 
         return new ManagedBridgeInstallInfo
         {
-            IsInstalled = fileInfo is not null,
+            IsInstalled = File.Exists(_paths.ManagedBridgeJarPath),
             InstallRoot = _paths.ManagedBridgeInstallRoot,
-            BridgeJarPath = jarPath,
-            DisplayVersion = fileInfo is null ? "Bridge runtime" : Path.GetFileNameWithoutExtension(fileInfo.Name),
-            InstalledAtUtc = fileInfo?.LastWriteTimeUtc,
+            BridgeJarPath = _paths.ManagedBridgeJarPath,
+            DisplayVersion = metadata?.ReleaseName ?? "Bridge runtime",
+            PublishedAtUtc = metadata?.PublishedAtUtc,
+            InstalledAtUtc = metadata?.InstalledAtUtc,
+        };
+    }
+
+    public async Task<ManagedBridgeUpdateInfo> GetLatestBridgeUpdateInfoAsync(CancellationToken cancellationToken)
+    {
+        var installInfo = GetManagedInstallInfo();
+        if (!installInfo.IsInstalled)
+        {
+            return new ManagedBridgeUpdateInfo
+            {
+                IsInstalled = false,
+                CheckedRemotely = false,
+                UpdateAvailable = false,
+                CurrentVersion = "Not installed",
+                LatestVersion = "Latest release",
+                StatusText = "Managed bridge runtime is not installed.",
+            };
+        }
+
+        var release = await FetchLatestReleaseAsync(cancellationToken);
+        var metadata = ReadMetadata();
+        var currentVersion = metadata?.ReleaseName ?? installInfo.DisplayVersion;
+        var updateAvailable = metadata is null ||
+            (!string.IsNullOrWhiteSpace(release.JarAsset.Sha256) &&
+             !string.Equals(metadata.JarSha256, release.JarAsset.Sha256, StringComparison.OrdinalIgnoreCase)) ||
+            metadata.PublishedAtUtc != release.PublishedAtUtc;
+
+        return new ManagedBridgeUpdateInfo
+        {
+            IsInstalled = true,
+            CheckedRemotely = true,
+            UpdateAvailable = updateAvailable,
+            CurrentVersion = currentVersion,
+            LatestVersion = release.ReleaseName,
+            LatestPublishedAtUtc = release.PublishedAtUtc,
+            StatusText = updateAvailable
+                ? $"Update available: {release.ReleaseName}"
+                : $"Up to date: {release.ReleaseName}",
         };
     }
 
     public async Task<ManagedBridgeInstallInfo> EnsureManagedBridgeInstalledAsync(CancellationToken cancellationToken)
     {
         var existing = GetManagedInstallInfo();
-        var sourcePath = FindSourceBridgeJar();
-        if (sourcePath is null && existing.IsInstalled)
+        if (existing.IsInstalled)
         {
             _logger.Info($"Using managed bridge runtime at {existing.BridgeJarPath}.");
             return existing;
         }
 
-        if (sourcePath is null)
+        return await InstallLatestReleaseAsync(cancellationToken);
+    }
+
+    public async Task<ManagedBridgeInstallInfo> InstallLatestReleaseAsync(CancellationToken cancellationToken)
+    {
+        var existing = GetManagedInstallInfo();
+        if (!existing.IsInstalled)
         {
-            throw new InvalidOperationException(
-                "No bridge runtime source was found. Bundle bootstrap-standalone.jar with the launcher or build the bridge repo locally.");
+            _logger.Info("No managed bridge install found. Installing the latest LCEBridge release.");
         }
 
-        if (existing.IsInstalled && !IsSourceNewer(sourcePath, existing.BridgeJarPath))
+        var release = await FetchLatestReleaseAsync(cancellationToken);
+        return await InstallReleaseAsync(release, "Installing", "Installed", cancellationToken);
+    }
+
+    public async Task<ManagedBridgeInstallInfo> UpdateBridgeAsync(CancellationToken cancellationToken)
+    {
+        var existing = GetManagedInstallInfo();
+        if (!existing.IsInstalled)
         {
-            _logger.Info($"Using managed bridge runtime at {existing.BridgeJarPath}.");
+            _logger.Info("No managed bridge install found. Falling back to latest bridge install.");
+            return await InstallLatestReleaseAsync(cancellationToken);
+        }
+
+        var release = await FetchLatestReleaseAsync(cancellationToken);
+        var metadata = ReadMetadata();
+        if (metadata is not null &&
+            string.Equals(metadata.JarSha256, release.JarAsset.Sha256, StringComparison.OrdinalIgnoreCase) &&
+            metadata.PublishedAtUtc == release.PublishedAtUtc)
+        {
+            _logger.Info("Managed bridge runtime is already up to date.");
             return existing;
         }
 
+        return await InstallReleaseAsync(release, "Updating", "Updated", cancellationToken);
+    }
+
+    private async Task<ManagedBridgeInstallInfo> InstallReleaseAsync(
+        BridgeRelease release,
+        string startVerb,
+        string completeVerb,
+        CancellationToken cancellationToken)
+    {
+        Directory.CreateDirectory(_paths.DownloadsRoot);
         Directory.CreateDirectory(_paths.ManagedBridgeInstallRoot);
-        var destinationPath = _paths.ManagedBridgeJarPath;
-        var tempPath = $"{destinationPath}.download";
 
-        await using (var source = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+        _logger.Info($"{startVerb} managed bridge runtime from {release.ReleaseName}.");
+        _logger.Info($"Downloading {release.JarAsset.Name} from {release.ReleaseName}.");
+
+        var downloadPath = await DownloadFileAsync(release.JarAsset.DownloadUrl, _paths.ManagedBridgeDownloadPath, cancellationToken);
+        var targetPath = _paths.ManagedBridgeJarPath;
+        var tempPath = $"{targetPath}.download";
+
+        await using (var source = new FileStream(downloadPath, FileMode.Open, FileAccess.Read, FileShare.Read))
         await using (var destination = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
         {
             await source.CopyToAsync(destination, cancellationToken);
+        }
+
+        if (File.Exists(targetPath))
+        {
+            File.Delete(targetPath);
+        }
+
+        File.Move(tempPath, targetPath);
+        WriteMetadata(new BridgeInstallMetadata(
+            release.ReleaseTag,
+            release.ReleaseName,
+            release.PublishedAtUtc,
+            DateTimeOffset.UtcNow,
+            release.JarAsset.Sha256));
+
+        _logger.Info($"{completeVerb} managed bridge runtime at {targetPath}.");
+        return GetManagedInstallInfo();
+    }
+
+    private async Task<BridgeRelease> FetchLatestReleaseAsync(CancellationToken cancellationToken)
+    {
+        using var response = await HttpClient.GetAsync(LatestReleaseUri, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+        var root = document.RootElement;
+        var asset = root
+            .GetProperty("assets")
+            .EnumerateArray()
+            .FirstOrDefault(item =>
+            {
+                var name = item.GetProperty("name").GetString();
+                return !string.IsNullOrWhiteSpace(name) &&
+                    name.StartsWith("bootstrap-standalone", StringComparison.OrdinalIgnoreCase) &&
+                    name.EndsWith(".jar", StringComparison.OrdinalIgnoreCase);
+            });
+
+        if (asset.ValueKind == JsonValueKind.Undefined)
+        {
+            throw new InvalidOperationException("Latest LCEBridge release is missing a bootstrap-standalone jar asset.");
+        }
+
+        return new BridgeRelease(
+            root.GetProperty("tag_name").GetString() ?? "latest",
+            root.GetProperty("name").GetString() ?? "Latest LCEBridge Release",
+            root.GetProperty("published_at").GetDateTimeOffset(),
+            ParseAsset(asset));
+    }
+
+    private static BridgeAsset ParseAsset(JsonElement asset) =>
+        new(
+            asset.GetProperty("name").GetString() ?? string.Empty,
+            new Uri(asset.GetProperty("browser_download_url").GetString() ?? throw new InvalidOperationException("Missing browser download URL.")),
+            asset.TryGetProperty("digest", out var digestProperty) ? digestProperty.GetString() : null);
+
+    private async Task<string> DownloadFileAsync(Uri downloadUri, string destinationPath, CancellationToken cancellationToken)
+    {
+        var tempPath = $"{destinationPath}.download";
+
+        using var response = await HttpClient.GetAsync(downloadUri, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        await using (var stream = await response.Content.ReadAsStreamAsync(cancellationToken))
+        await using (var file = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
+        {
+            await stream.CopyToAsync(file, cancellationToken);
         }
 
         if (File.Exists(destinationPath))
@@ -66,101 +211,54 @@ public sealed class BridgeInstallService
         }
 
         File.Move(tempPath, destinationPath);
-        _logger.Info($"Installed managed bridge runtime from {sourcePath} to {destinationPath}.");
-        return GetManagedInstallInfo();
+        return destinationPath;
     }
 
-    private static bool IsSourceNewer(string sourcePath, string destinationPath)
+    private void WriteMetadata(BridgeInstallMetadata metadata)
     {
-        if (!File.Exists(destinationPath))
-        {
-            return true;
-        }
-
-        var source = new FileInfo(sourcePath);
-        var destination = new FileInfo(destinationPath);
-        return source.Length != destination.Length || source.LastWriteTimeUtc > destination.LastWriteTimeUtc;
+        Directory.CreateDirectory(_paths.ManagedBridgeInstallRoot);
+        var json = JsonSerializer.Serialize(metadata, new JsonSerializerOptions { WriteIndented = true });
+        File.WriteAllText(_paths.ManagedBridgeMetadataPath, json);
     }
 
-    private string? FindSourceBridgeJar()
+    private BridgeInstallMetadata? ReadMetadata()
     {
-        var bundledCandidates = new[]
-        {
-            Path.Combine(AppContext.BaseDirectory, "Bridge", "bootstrap-standalone.jar"),
-            Path.Combine(AppContext.BaseDirectory, "bridge", "bootstrap-standalone.jar"),
-            Path.Combine(AppContext.BaseDirectory, "bootstrap-standalone.jar"),
-            Path.Combine(AppContext.BaseDirectory, "Assets", "bootstrap-standalone.jar"),
-            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "Assets", "bootstrap-standalone.jar"),
-        };
-
-        foreach (var candidate in bundledCandidates.Select(Path.GetFullPath))
-        {
-            if (File.Exists(candidate))
-            {
-                _logger.Info($"Found bundled bridge runtime candidate at {candidate}.");
-                return candidate;
-            }
-        }
-
-        var repoRoot = TryFindRepoRoot(AppContext.BaseDirectory);
-        if (repoRoot is null)
+        if (!File.Exists(_paths.ManagedBridgeMetadataPath))
         {
             return null;
         }
 
-        var candidates = new[]
+        try
         {
-            TryFindLatestFile(Path.Combine(repoRoot, "bridge", "scripts", "output"), "*.jar"),
-            TryFindLatestFile(Path.Combine(repoRoot, "bridge", "_build", "bootstrap-standalone", "libs"), "*.jar"),
+            return JsonSerializer.Deserialize<BridgeInstallMetadata>(File.ReadAllText(_paths.ManagedBridgeMetadataPath));
         }
-        .Where(path => !string.IsNullOrWhiteSpace(path))
-        .Select(path => new FileInfo(path!))
-        .OrderByDescending(file => file.LastWriteTimeUtc)
-        .Select(file => file.FullName)
-        .ToArray();
-
-        var bridgeJar = candidates.FirstOrDefault();
-
-        if (bridgeJar is not null)
+        catch (Exception ex)
         {
-            _logger.Info($"Falling back to workspace bridge jar at {bridgeJar}.");
-        }
-
-        return bridgeJar;
-    }
-
-    private static string? TryFindRepoRoot(string startDirectory)
-    {
-        var current = new DirectoryInfo(startDirectory);
-        while (current is not null)
-        {
-            var hasMarkers =
-                Directory.Exists(Path.Combine(current.FullName, ".git")) &&
-                Directory.Exists(Path.Combine(current.FullName, "bridge"));
-
-            if (hasMarkers)
-            {
-                return current.FullName;
-            }
-
-            current = current.Parent;
-        }
-
-        return null;
-    }
-
-    private static string? TryFindLatestFile(string directory, string filter)
-    {
-        if (!Directory.Exists(directory))
-        {
+            _logger.Warn($"Failed to read bridge install metadata: {ex.Message}");
             return null;
         }
-
-        return Directory
-            .EnumerateFiles(directory, filter, SearchOption.AllDirectories)
-            .Select(path => new FileInfo(path))
-            .OrderByDescending(file => file.LastWriteTimeUtc)
-            .Select(file => file.FullName)
-            .FirstOrDefault();
     }
+
+    private static HttpClient CreateHttpClient()
+    {
+        var client = new HttpClient();
+        client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("LCELauncher", "0.1"));
+        client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+        return client;
+    }
+
+    private sealed record BridgeRelease(
+        string ReleaseTag,
+        string ReleaseName,
+        DateTimeOffset PublishedAtUtc,
+        BridgeAsset JarAsset);
+
+    private sealed record BridgeAsset(string Name, Uri DownloadUrl, string? Sha256);
+
+    private sealed record BridgeInstallMetadata(
+        string ReleaseTag,
+        string ReleaseName,
+        DateTimeOffset PublishedAtUtc,
+        DateTimeOffset InstalledAtUtc,
+        string? JarSha256);
 }

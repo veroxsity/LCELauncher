@@ -10,5 +10,7 @@ public sealed class ManagedBridgeInstallInfo
 
     public string DisplayVersion { get; init; } = "Bridge runtime";
 
+    public DateTimeOffset? PublishedAtUtc { get; init; }
+
     public DateTimeOffset? InstalledAtUtc { get; init; }
 }

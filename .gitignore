@@ -1,3 +1,5 @@
 bin/
 obj/
 .vs/
+scripts/
+_build_verify

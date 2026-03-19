@@ -35,6 +35,10 @@ public sealed class AppPaths
 
     public string ManagedBridgeJarPath => Path.Combine(ManagedBridgeInstallRoot, "bootstrap-standalone.jar");
 
+    public string ManagedBridgeMetadataPath => Path.Combine(ManagedBridgeInstallRoot, "release.json");
+
+    public string ManagedBridgeDownloadPath => Path.Combine(DownloadsRoot, "bootstrap-standalone-latest.jar");
+
     public string NightlyInstallRoot => GetClientInstallDirectory(NightlyChannel);
 
     public string NightlyClientExecutablePath => Path.Combine(NightlyInstallRoot, "Minecraft.Client.exe");
