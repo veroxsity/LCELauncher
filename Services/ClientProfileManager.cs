@@ -24,7 +24,7 @@ public sealed class ClientProfileManager
         var clientExe = config.ClientExecutablePath?.Trim();
         if (string.IsNullOrWhiteSpace(clientExe))
         {
-            throw new InvalidOperationException("Client executable path is not configured.");
+            throw new InvalidOperationException("Client is not installed. Install the managed nightly client or configure a client executable path.");
         }
 
         if (!File.Exists(clientExe))

@@ -23,6 +23,8 @@ public sealed class LauncherConfigService
     {
         Directory.CreateDirectory(_paths.DataRoot);
         Directory.CreateDirectory(_paths.RuntimeRoot);
+        Directory.CreateDirectory(_paths.DownloadsRoot);
+        Directory.CreateDirectory(_paths.InstallsRoot);
 
         LauncherConfig config;
         if (File.Exists(_paths.ConfigPath))
@@ -52,19 +54,27 @@ public sealed class LauncherConfigService
     private void ApplyDiscoveredDefaults(LauncherConfig config)
     {
         var repoRoot = TryFindRepoRoot(AppContext.BaseDirectory);
+
+        if (config.PreferManagedClientInstall)
+        {
+            if (File.Exists(_paths.NightlyClientExecutablePath))
+            {
+                if (!PathsEqual(config.ClientExecutablePath, _paths.NightlyClientExecutablePath))
+                {
+                    config.ClientExecutablePath = _paths.NightlyClientExecutablePath;
+                    _logger.Info($"Using managed nightly client install at {_paths.NightlyClientExecutablePath}");
+                }
+            }
+            else if (repoRoot is not null && IsWorkspaceClientPath(repoRoot, config.ClientExecutablePath))
+            {
+                config.ClientExecutablePath = null;
+                _logger.Info("Cleared workspace client path so the launcher can use managed installs instead.");
+            }
+        }
+
         if (repoRoot is null)
         {
             return;
-        }
-
-        if (string.IsNullOrWhiteSpace(config.ClientExecutablePath))
-        {
-            var clientExe = TryFindLatestFile(Path.Combine(repoRoot, "client"), "Minecraft.Client.exe");
-            if (clientExe is not null)
-            {
-                config.ClientExecutablePath = clientExe;
-                _logger.Info($"Auto-detected client executable: {clientExe}");
-            }
         }
 
         if (string.IsNullOrWhiteSpace(config.BridgeJarPath))
@@ -117,5 +127,27 @@ public sealed class LauncherConfigService
             .OrderByDescending(file => file.LastWriteTimeUtc)
             .Select(file => file.FullName)
             .FirstOrDefault();
+    }
+
+    private static bool IsWorkspaceClientPath(string repoRoot, string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        var fullPath = Path.GetFullPath(path);
+        var workspaceClientRoot = Path.GetFullPath(Path.Combine(repoRoot, "client")) + Path.DirectorySeparatorChar;
+        return fullPath.StartsWith(workspaceClientRoot, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool PathsEqual(string? left, string? right)
+    {
+        if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
+        {
+            return false;
+        }
+
+        return string.Equals(Path.GetFullPath(left), Path.GetFullPath(right), StringComparison.OrdinalIgnoreCase);
     }
 }

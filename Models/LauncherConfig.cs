@@ -2,6 +2,8 @@ namespace LceLauncher.Models;
 
 public sealed class LauncherConfig
 {
+    public bool PreferManagedClientInstall { get; set; } = true;
+
     public string? ClientExecutablePath { get; set; }
 
     public string? BridgeJarPath { get; set; }

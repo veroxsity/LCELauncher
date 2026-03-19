@@ -148,12 +148,14 @@ public sealed partial class MainForm
         container.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         EnableDoubleBuffering(container);
 
+        container.Controls.Add(BuildManagedClientSettingsCard(), 0, 0);
+
         container.Controls.Add(BuildSettingsCard("Executables", new[]
         {
             BuildFileRow("Client Executable", _clientExecutableTextBox, () => BrowseForFile(_clientExecutableTextBox, "Minecraft Client|Minecraft.Client.exe|Executable|*.exe")),
             BuildFileRow("Bridge Jar", _bridgeJarTextBox, () => BrowseForFile(_bridgeJarTextBox, "Bridge Jar|*.jar|All Files|*.*")),
             BuildFileRow("Java Executable", _javaExecutableTextBox, () => BrowseForFile(_javaExecutableTextBox, "Java Executable|java.exe|Executable|*.exe")),
-        }), 0, 0);
+        }), 0, 1);
 
         container.Controls.Add(BuildSettingsCard("Profile", new[]
         {
@@ -161,14 +163,14 @@ public sealed partial class MainForm
             BuildFormRow("Local Username", _localUsernameTextBox),
             BuildFormRow("Selected Server", _selectedServerComboBox),
             BuildFormRow("Launch Arguments", _launchArgumentsTextBox),
-        }), 0, 1);
+        }), 0, 2);
 
         container.Controls.Add(BuildSettingsCard("Runtime", new[]
         {
             BuildFormRow("First Bridge Port", _firstBridgePortUpDown),
             BuildFormRow("Close Bridge On Exit", _closeBridgeOnExitCheckBox),
             BuildFormRow("Launcher Data Root", CreateBodyLabel(_appPaths.DataRoot)),
-        }), 0, 2);
+        }), 0, 3);
 
         var actionsPanel = new Panel
         {
@@ -187,9 +189,50 @@ public sealed partial class MainForm
         saveButton.Click += (_, _) => SaveConfigFromControls();
         actionsPanel.Controls.Add(saveButton);
 
-        container.Controls.Add(actionsPanel, 0, 3);
+        container.Controls.Add(actionsPanel, 0, 4);
 
         return CreateResponsivePage("Settings", "Point the launcher at local builds and keep phase-one runtime behavior explicit.", container, 1100, false);
+    }
+
+    private Panel BuildManagedClientSettingsCard()
+    {
+        _managedClientStatusLabel.Margin = new Padding(0, 8, 0, 0);
+        _managedClientDetailsLabel.Margin = new Padding(0, 8, 0, 0);
+
+        var actions = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
+            BackColor = Color.Transparent,
+            Margin = new Padding(0, 14, 0, 0),
+            Padding = Padding.Empty,
+        };
+        EnableDoubleBuffering(actions);
+
+        _installNightlyButton.Margin = new Padding(0, 0, 10, 10);
+        _updateNightlyButton.Margin = new Padding(0, 0, 10, 10);
+        _useManagedNightlyButton.Margin = new Padding(0, 0, 10, 10);
+        _openManagedInstallButton.Margin = new Padding(0, 0, 0, 10);
+
+        _installNightlyButton.Click += async (_, _) => await InstallNightlyAsync();
+        _updateNightlyButton.Click += async (_, _) => await UpdateManagedNightlyAsync();
+        _useManagedNightlyButton.Click += (_, _) => UseManagedNightlyInstall();
+        _openManagedInstallButton.Click += (_, _) => OpenDirectorySafely(_appPaths.NightlyInstallRoot);
+
+        actions.Controls.Add(_installNightlyButton);
+        actions.Controls.Add(_updateNightlyButton);
+        actions.Controls.Add(_useManagedNightlyButton);
+        actions.Controls.Add(_openManagedInstallButton);
+
+        return BuildSettingsCard("Managed Client", new Control[]
+        {
+            BuildFormRow("Install Channel", CreateBodyLabel("smartcmd nightly")),
+            BuildFormRow("Managed Status", _managedClientStatusLabel),
+            BuildFormRow("Install Details", _managedClientDetailsLabel),
+            actions,
+        });
     }
 
     private Control BuildLogsPage()

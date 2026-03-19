@@ -37,6 +37,7 @@ public sealed partial class MainForm : Form
     private readonly LauncherConfigService _configService;
     private readonly ServerManager _serverManager;
     private readonly ClientProfileManager _clientProfileManager;
+    private readonly ClientInstallService _clientInstallService;
     private readonly BridgeRuntimeManager _bridgeRuntimeManager;
     private readonly LaunchCoordinator _launchCoordinator;
     private readonly LauncherConfig _config;
@@ -58,6 +59,12 @@ public sealed partial class MainForm : Form
     private readonly NumericUpDown _firstBridgePortUpDown;
     private readonly CheckBox _closeBridgeOnExitCheckBox;
     private readonly TextBox _launchArgumentsTextBox;
+    private readonly Label _managedClientStatusLabel;
+    private readonly Label _managedClientDetailsLabel;
+    private readonly Button _installNightlyButton;
+    private readonly Button _updateNightlyButton;
+    private readonly Button _useManagedNightlyButton;
+    private readonly Button _openManagedInstallButton;
 
     private readonly TextBox _logsTextBox;
 
@@ -85,6 +92,7 @@ public sealed partial class MainForm : Form
         _configService = new LauncherConfigService(_appPaths, _logger);
         _serverManager = new ServerManager();
         _clientProfileManager = new ClientProfileManager(_serverManager, _logger);
+        _clientInstallService = new ClientInstallService(_appPaths, _logger);
         _bridgeRuntimeManager = new BridgeRuntimeManager(_appPaths, _logger);
         _launchCoordinator = new LaunchCoordinator(_serverManager, _clientProfileManager, _bridgeRuntimeManager, _logger);
         _config = _configService.Load();
@@ -131,6 +139,12 @@ public sealed partial class MainForm : Form
         _firstBridgePortUpDown = CreateNumericUpDown();
         _closeBridgeOnExitCheckBox = CreateCheckBox("Stop managed bridge when the launcher exits");
         _launchArgumentsTextBox = CreateTextBox();
+        _managedClientStatusLabel = CreateBodyLabel(string.Empty);
+        _managedClientDetailsLabel = CreateBodyLabel(string.Empty);
+        _installNightlyButton = CreateSecondaryButton("INSTALL NIGHTLY");
+        _updateNightlyButton = CreateSecondaryButton("UPDATE CLIENT");
+        _useManagedNightlyButton = CreateSecondaryButton("USE MANAGED INSTALL");
+        _openManagedInstallButton = CreateSecondaryButton("OPEN INSTALL FOLDER");
 
         _logsTextBox = CreateLogsTextBox();
 
@@ -155,6 +169,7 @@ public sealed partial class MainForm : Form
         LoadConfigIntoControls();
         RefreshServerViews();
         RefreshStatus();
+        RefreshManagedInstallStatus();
         AppendExistingLogs();
         ShowPage(PageHome);
     }

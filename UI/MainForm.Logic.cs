@@ -360,6 +360,11 @@ public sealed partial class MainForm
 
     private void LoadConfigIntoControls()
     {
+        if (_config.PreferManagedClientInstall && File.Exists(_appPaths.NightlyClientExecutablePath))
+        {
+            _config.ClientExecutablePath = _appPaths.NightlyClientExecutablePath;
+        }
+
         _authModeComboBox.SelectedIndex = _config.AuthMode == AuthMode.Online ? 1 : 0;
         _localUsernameTextBox.Text = _config.LocalUsername;
         _clientExecutableTextBox.Text = _config.ClientExecutablePath ?? string.Empty;
@@ -372,9 +377,18 @@ public sealed partial class MainForm
 
     private void SaveConfigFromControls()
     {
+        var configuredClientPath = NullIfWhitespace(_clientExecutableTextBox.Text);
         _config.AuthMode = _authModeComboBox.SelectedIndex == 1 ? AuthMode.Online : AuthMode.Local;
         _config.LocalUsername = string.IsNullOrWhiteSpace(_localUsernameTextBox.Text) ? "Player" : _localUsernameTextBox.Text.Trim();
-        _config.ClientExecutablePath = NullIfWhitespace(_clientExecutableTextBox.Text);
+        _config.PreferManagedClientInstall = string.IsNullOrWhiteSpace(configuredClientPath) || PathsEqual(configuredClientPath, _appPaths.NightlyClientExecutablePath);
+        _config.ClientExecutablePath = configuredClientPath;
+
+        if (_config.PreferManagedClientInstall && File.Exists(_appPaths.NightlyClientExecutablePath))
+        {
+            _config.ClientExecutablePath = _appPaths.NightlyClientExecutablePath;
+            _clientExecutableTextBox.Text = _config.ClientExecutablePath;
+        }
+
         _config.BridgeJarPath = NullIfWhitespace(_bridgeJarTextBox.Text);
         _config.JavaExecutablePath = string.IsNullOrWhiteSpace(_javaExecutableTextBox.Text) ? "java" : _javaExecutableTextBox.Text.Trim();
         _config.FirstBridgePort = decimal.ToInt32(_firstBridgePortUpDown.Value);
@@ -386,6 +400,7 @@ public sealed partial class MainForm
         _configService.Save(_config);
         RefreshServerViews();
         RefreshStatus();
+        RefreshManagedInstallStatus();
     }
 
     private void RefreshServerViews()
@@ -425,8 +440,15 @@ public sealed partial class MainForm
         var selectedServer = GetSelectedServer();
         var username = string.IsNullOrWhiteSpace(_localUsernameTextBox.Text) ? "Player" : _localUsernameTextBox.Text.Trim();
         var authModeText = _authModeComboBox.SelectedIndex == 1 ? "Online (planned)" : "Local";
+        var clientConfigured = !string.IsNullOrWhiteSpace(_clientExecutableTextBox.Text);
 
-        if (selectedServer is null)
+        if (!clientConfigured)
+        {
+            _promoTitleLabel.Text = "Install the managed nightly client";
+            _selectedServerDetailsLabel.Text = "No client install is configured yet. Install the smartcmd nightly build to AppData or set a custom client executable path.";
+            _heroServerLabel.Text = "Client not installed";
+        }
+        else if (selectedServer is null)
         {
             _promoTitleLabel.Text = "Launch the local client shell";
             _selectedServerDetailsLabel.Text = "The launcher will update username.txt and servers.db, then start the client without spinning up a bridge route.";
@@ -454,8 +476,8 @@ public sealed partial class MainForm
         _runtimeCardBodyLabel.Text = $"{_bridgeRuntimeManager.StatusText}. Use the logs page to inspect bridge startup and launcher actions.";
 
         var onlineSelected = _authModeComboBox.SelectedIndex == 1;
-        _launchClientButton.Enabled = true;
-        _launchSelectedServerButton.Enabled = !onlineSelected;
+        _launchClientButton.Enabled = clientConfigured;
+        _launchSelectedServerButton.Enabled = clientConfigured && !onlineSelected;
     }
 
     private async Task LaunchAsync(ServerEntry? server)
@@ -485,6 +507,100 @@ public sealed partial class MainForm
         _launchClientButton.Enabled = !busy;
         _launchSelectedServerButton.Enabled = !busy && _authModeComboBox.SelectedIndex != 1;
         _stopBridgeButton.Enabled = !busy;
+        _installNightlyButton.Enabled = !busy;
+        _updateNightlyButton.Enabled = !busy;
+        _useManagedNightlyButton.Enabled = !busy;
+        _openManagedInstallButton.Enabled = !busy;
+    }
+
+    private void RefreshManagedInstallStatus()
+    {
+        var installInfo = _clientInstallService.GetManagedInstallInfo();
+        var isUsingManagedClient = PathsEqual(_clientExecutableTextBox.Text, installInfo.ClientExecutablePath);
+
+        _managedClientStatusLabel.Text = installInfo.IsInstalled
+            ? (isUsingManagedClient ? $"Installed and active: {installInfo.DisplayVersion}" : $"Installed: {installInfo.DisplayVersion}")
+            : "Not installed";
+
+        _managedClientDetailsLabel.Text = installInfo.IsInstalled
+            ? $"Root: {installInfo.InstallRoot}{Environment.NewLine}Published: {FormatTimestamp(installInfo.PublishedAtUtc)}{Environment.NewLine}Installed: {FormatTimestamp(installInfo.InstalledAtUtc)}"
+            : $"Expected install root: {installInfo.InstallRoot}{Environment.NewLine}Use Install Nightly to download LCEWindows64.zip into AppData and extract it here.";
+
+        _managedClientDetailsLabel.MaximumSize = new Size(720, 0);
+        _updateNightlyButton.Enabled = installInfo.IsInstalled;
+        _useManagedNightlyButton.Enabled = installInfo.IsInstalled;
+        _openManagedInstallButton.Enabled = installInfo.IsInstalled;
+    }
+
+    private async Task InstallNightlyAsync()
+    {
+        try
+        {
+            SetBusy(true);
+            var installInfo = await _clientInstallService.InstallNightlyAsync(CancellationToken.None);
+            _config.PreferManagedClientInstall = true;
+            _config.ClientExecutablePath = installInfo.ClientExecutablePath;
+            _clientExecutableTextBox.Text = installInfo.ClientExecutablePath;
+            _configService.Save(_config);
+            RefreshStatus();
+            RefreshManagedInstallStatus();
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex.Message);
+            MessageBox.Show(this, ex.Message, "Install Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally
+        {
+            SetBusy(false);
+            RefreshManagedInstallStatus();
+        }
+    }
+
+    private async Task UpdateManagedNightlyAsync()
+    {
+        try
+        {
+            SetBusy(true);
+            var installInfo = await _clientInstallService.UpdateNightlyExecutableAsync(CancellationToken.None);
+            if (_config.PreferManagedClientInstall || PathsEqual(_clientExecutableTextBox.Text, installInfo.ClientExecutablePath))
+            {
+                _config.PreferManagedClientInstall = true;
+                _config.ClientExecutablePath = installInfo.ClientExecutablePath;
+                _clientExecutableTextBox.Text = installInfo.ClientExecutablePath;
+                _configService.Save(_config);
+            }
+
+            RefreshStatus();
+            RefreshManagedInstallStatus();
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex.Message);
+            MessageBox.Show(this, ex.Message, "Update Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally
+        {
+            SetBusy(false);
+            RefreshManagedInstallStatus();
+        }
+    }
+
+    private void UseManagedNightlyInstall()
+    {
+        var installInfo = _clientInstallService.GetManagedInstallInfo();
+        if (!installInfo.IsInstalled)
+        {
+            MessageBox.Show(this, "The managed nightly client is not installed yet.", "Managed Client", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        _config.PreferManagedClientInstall = true;
+        _config.ClientExecutablePath = installInfo.ClientExecutablePath;
+        _clientExecutableTextBox.Text = installInfo.ClientExecutablePath;
+        _configService.Save(_config);
+        RefreshStatus();
+        RefreshManagedInstallStatus();
     }
 
     private void AddServer()
@@ -574,6 +690,19 @@ public sealed partial class MainForm
         Directory.CreateDirectory(path);
         Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true });
     }
+
+    private static bool PathsEqual(string? left, string? right)
+    {
+        if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
+        {
+            return false;
+        }
+
+        return string.Equals(Path.GetFullPath(left), Path.GetFullPath(right), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string FormatTimestamp(DateTimeOffset? timestamp) =>
+        timestamp?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "Unknown";
 
     private void AppendExistingLogs()
     {
