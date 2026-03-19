@@ -4,12 +4,21 @@ namespace LceLauncher.Services;
 
 public static class BridgeConfigRenderer
 {
-    public static string Render(ServerEntry server)
+    public static string Render(ServerEntry server, BridgeAuthContext? authContext = null)
     {
         if (server.Type != ServerType.JavaBridge || server.LocalBridgePort is null)
         {
             throw new InvalidOperationException("Bridge configs can only be generated for Java bridge servers.");
         }
+
+        var authType = authContext is null ? "offline" : "online";
+        var onlineFields = authContext is null
+            ? string.Empty
+            : $"""
+  minecraft-profile-id: "{Escape(authContext.MinecraftProfileId)}"
+  minecraft-profile-name: "{Escape(authContext.MinecraftUsername)}"
+  minecraft-access-token: "{Escape(authContext.MinecraftAccessToken)}"
+""";
 
         return $$"""
 # ============================================================
@@ -26,7 +35,8 @@ lce:
 remote:
   address: {{server.RemoteAddress}}
   port: {{server.RemotePort}}
-  auth-type: offline
+  auth-type: {{authType}}
+{{onlineFields}}
 
 floodgate:
   key-file: key.pem

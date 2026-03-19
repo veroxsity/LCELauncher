@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using LceLauncher.Models;
+using LceLauncher.Services;
 
 namespace LceLauncher.UI;
 
@@ -355,6 +356,7 @@ public sealed partial class MainForm
         _selectedServerComboBox.SelectedIndexChanged += (_, _) => RefreshStatus();
         _authModeComboBox.SelectedIndexChanged += (_, _) => RefreshStatus();
         _localUsernameTextBox.TextChanged += (_, _) => RefreshStatus();
+        _syncUsernameFromOnlineAccountCheckBox.CheckedChanged += (_, _) => RefreshStatus();
         _serversListView.DoubleClick += (_, _) => EditSelectedServer();
         Shown += async (_, _) => await InitializeManagedClientUpdateChecksAsync();
     }
@@ -374,6 +376,8 @@ public sealed partial class MainForm
         _firstBridgePortUpDown.Value = Math.Clamp(_config.FirstBridgePort, (int)_firstBridgePortUpDown.Minimum, (int)_firstBridgePortUpDown.Maximum);
         _closeBridgeOnExitCheckBox.Checked = _config.CloseBridgeOnExit;
         _launchArgumentsTextBox.Text = _config.LaunchArguments;
+        _syncUsernameFromOnlineAccountCheckBox.Checked = _config.SyncUsernameFromOnlineAccount;
+        _microsoftAuthClientIdTextBox.Text = _config.MicrosoftAuthClientId ?? _launcherAuthService.GetEffectiveClientId();
         _checkForManagedClientUpdatesOnStartupCheckBox.Checked = _config.CheckForManagedClientUpdatesOnStartup;
         _notifyWhenManagedClientUpdateAvailableCheckBox.Checked = _config.NotifyWhenManagedClientUpdateAvailable;
     }
@@ -405,6 +409,10 @@ public sealed partial class MainForm
         _config.FirstBridgePort = decimal.ToInt32(_firstBridgePortUpDown.Value);
         _config.CloseBridgeOnExit = _closeBridgeOnExitCheckBox.Checked;
         _config.LaunchArguments = _launchArgumentsTextBox.Text.Trim();
+        _config.SyncUsernameFromOnlineAccount = _syncUsernameFromOnlineAccountCheckBox.Checked;
+        _config.MicrosoftAuthClientId = string.IsNullOrWhiteSpace(_microsoftAuthClientIdTextBox.Text)
+            ? LauncherAuthService.DefaultCompatibilityClientId
+            : _microsoftAuthClientIdTextBox.Text.Trim();
         _config.SelectedServerId = (_selectedServerComboBox.SelectedItem as ServerSelectionItem)?.ServerId ?? _config.SelectedServerId;
         _config.CheckForManagedClientUpdatesOnStartup = _checkForManagedClientUpdatesOnStartupCheckBox.Checked;
         _config.NotifyWhenManagedClientUpdateAvailable = _notifyWhenManagedClientUpdateAvailableCheckBox.Checked;
@@ -412,6 +420,7 @@ public sealed partial class MainForm
         _serverManager.Normalize(_config);
         _configService.Save(_config);
         RefreshServerViews();
+        RefreshOnlineAccountStatus();
         RefreshStatus();
         RefreshManagedBridgeStatus();
         RefreshManagedInstallStatus();
@@ -426,7 +435,7 @@ public sealed partial class MainForm
         {
             var remote = $"{server.RemoteAddress}:{server.RemotePort}";
             var clientTarget = server.Type == ServerType.JavaBridge ? $"127.0.0.1:{server.LocalBridgePort}" : remote;
-            var notes = server.Type == ServerType.JavaBridge && server.RequiresOnlineAuth ? "Needs online auth later" : "Ready for local phase";
+            var notes = server.Type == ServerType.JavaBridge && server.RequiresOnlineAuth ? "Requires online auth" : "Ready";
 
             var item = new ListViewItem(server.DisplayName) { Tag = server.Id };
             item.SubItems.Add(server.Type == ServerType.JavaBridge ? "Java Bridge" : "Native LCE");
@@ -452,9 +461,14 @@ public sealed partial class MainForm
     private void RefreshStatus()
     {
         var selectedServer = GetSelectedServer();
-        var username = string.IsNullOrWhiteSpace(_localUsernameTextBox.Text) ? "Player" : _localUsernameTextBox.Text.Trim();
-        var authModeText = _authModeComboBox.SelectedIndex == 1 ? "Online (planned)" : "Local";
+        var onlineProfile = _launcherAuthService.GetCachedProfile();
+        var username = _authModeComboBox.SelectedIndex == 1 && _syncUsernameFromOnlineAccountCheckBox.Checked && onlineProfile is not null
+            ? onlineProfile.MinecraftUsername
+            : string.IsNullOrWhiteSpace(_localUsernameTextBox.Text) ? "Player" : _localUsernameTextBox.Text.Trim();
+        var authModeText = _authModeComboBox.SelectedIndex == 1 ? "Online" : "Local";
         var clientConfigured = !string.IsNullOrWhiteSpace(_clientExecutableTextBox.Text);
+        var onlineSelected = _authModeComboBox.SelectedIndex == 1;
+        var onlineReady = !onlineSelected || onlineProfile is not null;
 
         if (!clientConfigured)
         {
@@ -462,16 +476,28 @@ public sealed partial class MainForm
             _selectedServerDetailsLabel.Text = "No client install is configured yet. Install the smartcmd nightly build to AppData or set a custom client executable path.";
             _heroServerLabel.Text = "Client not installed";
         }
+        else if (onlineSelected && onlineProfile is null)
+        {
+            _promoTitleLabel.Text = "Sign in to use online auth";
+            _selectedServerDetailsLabel.Text = "Online auth mode is selected, but no Microsoft/Minecraft account is signed in. Open Settings and sign in with device code first.";
+            _heroServerLabel.Text = "Online account required";
+        }
         else if (selectedServer is null)
         {
-            _promoTitleLabel.Text = "Launch the local client shell";
-            _selectedServerDetailsLabel.Text = "The launcher will update username.txt and servers.db, then start the client without spinning up a bridge route.";
+            _promoTitleLabel.Text = onlineSelected ? "Launch the authenticated client shell" : "Launch the local client shell";
+            _selectedServerDetailsLabel.Text = onlineSelected
+                ? "The launcher will sync username.txt from the signed-in account, update servers.db, and launch the client without starting a bridge route."
+                : "The launcher will update username.txt and servers.db, then start the client without spinning up a bridge route.";
             _heroServerLabel.Text = "Client only, no bridge target selected";
         }
         else if (selectedServer.Type == ServerType.JavaBridge)
         {
-            _promoTitleLabel.Text = selectedServer.RequiresOnlineAuth ? "Server saved, waiting for online auth" : "Java bridge route ready to launch";
-            _selectedServerDetailsLabel.Text = $"Server {selectedServer.DisplayName} will be exposed to the client as 127.0.0.1:{selectedServer.LocalBridgePort}. {(selectedServer.RequiresOnlineAuth ? "It is currently blocked until online auth is implemented." : "Phase one can launch it through the bundled bridge.")}";
+            _promoTitleLabel.Text = onlineSelected
+                ? "Java bridge route ready with online auth"
+                : selectedServer.RequiresOnlineAuth ? "Server saved, waiting for online auth" : "Java bridge route ready to launch";
+            _selectedServerDetailsLabel.Text = onlineSelected
+                ? $"Server {selectedServer.DisplayName} will be exposed to the client as 127.0.0.1:{selectedServer.LocalBridgePort} and the bridge will connect upstream using {onlineProfile!.MinecraftUsername}."
+                : $"Server {selectedServer.DisplayName} will be exposed to the client as 127.0.0.1:{selectedServer.LocalBridgePort}. {(selectedServer.RequiresOnlineAuth ? "Switch the launcher to online auth mode and sign in before launching it." : "Phase one can launch it through the bundled bridge.")}";
             _heroServerLabel.Text = $"{selectedServer.DisplayName} via 127.0.0.1:{selectedServer.LocalBridgePort}";
         }
         else
@@ -482,16 +508,14 @@ public sealed partial class MainForm
         }
 
         _bridgeStatusLabel.Text = _bridgeRuntimeManager.StatusText;
-        _promoStatusPill.Text = _authModeComboBox.SelectedIndex == 1 ? "ONLINE MODE PLANNED" : "LOCAL MODE ACTIVE";
+        _promoStatusPill.Text = _authModeComboBox.SelectedIndex == 1 ? "ONLINE MODE ACTIVE" : "LOCAL MODE ACTIVE";
         _promoStatusPill.BackColor = _authModeComboBox.SelectedIndex == 1 ? DangerRed : AccentGreenDark;
 
         _heroProfileLabel.Text = $"{username} | {authModeText}";
         _serversCardBodyLabel.Text = $"{_config.Servers.Count} saved server(s). Java routes keep stable localhost mappings, and native LCE entries stay direct.";
         _runtimeCardBodyLabel.Text = $"{_bridgeRuntimeManager.StatusText}. Use the logs page to inspect bridge startup and launcher actions.";
-
-        var onlineSelected = _authModeComboBox.SelectedIndex == 1;
-        _launchClientButton.Enabled = clientConfigured;
-        _launchSelectedServerButton.Enabled = clientConfigured && !onlineSelected;
+        _launchClientButton.Enabled = clientConfigured && onlineReady;
+        _launchSelectedServerButton.Enabled = clientConfigured && onlineReady && (selectedServer is null || onlineSelected || !selectedServer.RequiresOnlineAuth);
     }
 
     private async Task LaunchAsync(ServerEntry? server)
@@ -524,6 +548,7 @@ public sealed partial class MainForm
         _checkNightlyUpdatesButton.Enabled = !busy;
         var installInfo = _clientInstallService.GetManagedInstallInfo();
         var managedBridge = _bridgeInstallService.GetManagedInstallInfo();
+        var onlineProfile = _launcherAuthService.GetCachedProfile();
         _installNightlyButton.Enabled = !busy;
         _updateNightlyButton.Enabled = !busy && installInfo.IsInstalled;
         _repairNightlyButton.Enabled = !busy;
@@ -532,6 +557,8 @@ public sealed partial class MainForm
         _installBridgeButton.Enabled = !busy;
         _useManagedBridgeButton.Enabled = !busy && managedBridge.IsInstalled;
         _openManagedBridgeButton.Enabled = !busy && managedBridge.IsInstalled;
+        _signInButton.Enabled = !busy;
+        _signOutButton.Enabled = !busy && onlineProfile is not null;
     }
 
     private void RefreshManagedBridgeStatus()
@@ -551,6 +578,22 @@ public sealed partial class MainForm
         _installBridgeButton.Enabled = true;
         _useManagedBridgeButton.Enabled = installInfo.IsInstalled;
         _openManagedBridgeButton.Enabled = installInfo.IsInstalled;
+    }
+
+    private void RefreshOnlineAccountStatus()
+    {
+        var profile = _launcherAuthService.GetCachedProfile();
+        var effectiveClientId = _launcherAuthService.GetEffectiveClientId();
+        _onlineAccountStatusLabel.Text = profile is null
+            ? "Not signed in"
+            : $"Signed in: {profile.MinecraftUsername}";
+
+        _onlineAccountDetailsLabel.Text = profile is null
+            ? $"Use device-code sign-in to acquire a Minecraft Java session for the launcher-managed bridge.{Environment.NewLine}Client ID: {effectiveClientId}"
+            : $"Minecraft: {profile.MinecraftUsername}{Environment.NewLine}Profile ID: {profile.MinecraftProfileId}{Environment.NewLine}Microsoft account: {profile.MicrosoftUsername}{Environment.NewLine}Client ID: {effectiveClientId}{Environment.NewLine}Last authenticated: {FormatTimestamp(profile.LastAuthenticatedAtUtc)}";
+
+        _onlineAccountDetailsLabel.MaximumSize = new Size(720, 0);
+        _signOutButton.Enabled = profile is not null;
     }
 
     private void RefreshManagedInstallStatus()
@@ -684,6 +727,91 @@ public sealed partial class MainForm
         _managedClientUpdateLabel.ForeColor = DangerRed;
         _managedClientLastCheckedLabel.Text = $"Last checked: {FormatTimestamp(checkedAtUtc)}";
         _managedClientLastCheckedLabel.ForeColor = TextMuted;
+    }
+
+    private async Task SignInAsync()
+    {
+        try
+        {
+            SetBusy(true);
+            SaveConfigFromControls();
+            var profile = await _launcherAuthService.SignInAsync(deviceCode =>
+            {
+                BeginInvoke(new Action(() =>
+                {
+                    try
+                    {
+                        Clipboard.SetText(deviceCode.UserCode);
+                    }
+                    catch
+                    {
+                    }
+
+                    OpenVerificationUri(deviceCode.VerificationUrl);
+                    MessageBox.Show(
+                        this,
+                        $"{deviceCode.Message}{Environment.NewLine}{Environment.NewLine}The code has been copied to your clipboard.",
+                        "Microsoft Sign-In",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                }));
+
+                return Task.CompletedTask;
+            }, CancellationToken.None);
+
+            if (_config.SyncUsernameFromOnlineAccount)
+            {
+                _localUsernameTextBox.Text = profile.MinecraftUsername;
+            }
+
+            RefreshOnlineAccountStatus();
+            RefreshStatus();
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex.Message);
+            MessageBox.Show(this, ex.Message, "Sign-In Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally
+        {
+            SetBusy(false);
+            RefreshOnlineAccountStatus();
+            RefreshStatus();
+        }
+    }
+
+    private async Task SignOutAsync()
+    {
+        var result = MessageBox.Show(
+            this,
+            "Sign out the saved online account and clear the local launcher token cache?",
+            "Sign Out",
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Question);
+
+        if (result != DialogResult.Yes)
+        {
+            return;
+        }
+
+        try
+        {
+            SetBusy(true);
+            await _launcherAuthService.SignOutAsync();
+            RefreshOnlineAccountStatus();
+            RefreshStatus();
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex.Message);
+            MessageBox.Show(this, ex.Message, "Sign-Out Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally
+        {
+            SetBusy(false);
+            RefreshOnlineAccountStatus();
+            RefreshStatus();
+        }
     }
 
     private async Task InstallNightlyAsync()
@@ -936,6 +1064,16 @@ public sealed partial class MainForm
 
         Directory.CreateDirectory(path);
         Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true });
+    }
+
+    private static void OpenVerificationUri(string? verificationUrl)
+    {
+        if (string.IsNullOrWhiteSpace(verificationUrl))
+        {
+            return;
+        }
+
+        Process.Start(new ProcessStartInfo { FileName = verificationUrl, UseShellExecute = true });
     }
 
     private static bool PathsEqual(string? left, string? right)

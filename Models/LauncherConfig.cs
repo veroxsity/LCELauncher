@@ -20,6 +20,10 @@ public sealed class LauncherConfig
 
     public string LocalUsername { get; set; } = "Player";
 
+    public bool SyncUsernameFromOnlineAccount { get; set; } = true;
+
+    public string? MicrosoftAuthClientId { get; set; }
+
     public int FirstBridgePort { get; set; } = 25570;
 
     public bool CloseBridgeOnExit { get; set; } = true;

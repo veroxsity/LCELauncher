@@ -1,3 +1,5 @@
+using LceLauncher.Services;
+
 namespace LceLauncher.UI;
 
 public sealed partial class MainForm
@@ -148,15 +150,16 @@ public sealed partial class MainForm
         container.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         EnableDoubleBuffering(container);
 
-        container.Controls.Add(BuildManagedClientSettingsCard(), 0, 0);
-        container.Controls.Add(BuildManagedBridgeSettingsCard(), 0, 1);
+        container.Controls.Add(BuildOnlineAuthSettingsCard(), 0, 0);
+        container.Controls.Add(BuildManagedClientSettingsCard(), 0, 1);
+        container.Controls.Add(BuildManagedBridgeSettingsCard(), 0, 2);
 
         container.Controls.Add(BuildSettingsCard("Executables", new[]
         {
             BuildFileRow("Client Executable", _clientExecutableTextBox, () => BrowseForFile(_clientExecutableTextBox, "Minecraft Client|Minecraft.Client.exe|Executable|*.exe")),
             BuildFileRow("Bridge Jar", _bridgeJarTextBox, () => BrowseForFile(_bridgeJarTextBox, "Bridge Jar|*.jar|All Files|*.*")),
             BuildFileRow("Java Executable", _javaExecutableTextBox, () => BrowseForFile(_javaExecutableTextBox, "Java Executable|java.exe|Executable|*.exe")),
-        }), 0, 2);
+        }), 0, 3);
 
         container.Controls.Add(BuildSettingsCard("Profile", new[]
         {
@@ -164,14 +167,14 @@ public sealed partial class MainForm
             BuildFormRow("Local Username", _localUsernameTextBox),
             BuildFormRow("Selected Server", _selectedServerComboBox),
             BuildFormRow("Launch Arguments", _launchArgumentsTextBox),
-        }), 0, 3);
+        }), 0, 4);
 
         container.Controls.Add(BuildSettingsCard("Runtime", new[]
         {
             BuildFormRow("First Bridge Port", _firstBridgePortUpDown),
             BuildFormRow("Close Bridge On Exit", _closeBridgeOnExitCheckBox),
             BuildFormRow("Launcher Data Root", CreateBodyLabel(_appPaths.DataRoot)),
-        }), 0, 4);
+        }), 0, 5);
 
         var actionsPanel = new Panel
         {
@@ -190,9 +193,67 @@ public sealed partial class MainForm
         saveButton.Click += (_, _) => SaveConfigFromControls();
         actionsPanel.Controls.Add(saveButton);
 
-        container.Controls.Add(actionsPanel, 0, 5);
+        container.Controls.Add(actionsPanel, 0, 6);
 
         return CreateResponsivePage("Settings", "Point the launcher at local builds and keep phase-one runtime behavior explicit.", container, 1100, false);
+    }
+
+    private Panel BuildOnlineAuthSettingsCard()
+    {
+        _onlineAccountStatusLabel.Margin = new Padding(0, 8, 0, 0);
+        _onlineAccountDetailsLabel.Margin = new Padding(0, 8, 0, 0);
+        _microsoftAuthClientIdTextBox.Width = 420;
+
+        var clientIdActions = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
+            BackColor = Color.Transparent,
+            Margin = new Padding(0, 12, 0, 0),
+            Padding = Padding.Empty,
+        };
+        EnableDoubleBuffering(clientIdActions);
+
+        _useCompatibilityAuthClientIdButton.Margin = new Padding(0, 0, 0, 0);
+        _useCompatibilityAuthClientIdButton.Click += (_, _) =>
+        {
+            _microsoftAuthClientIdTextBox.Text = LauncherAuthService.DefaultCompatibilityClientId;
+        };
+        clientIdActions.Controls.Add(_useCompatibilityAuthClientIdButton);
+
+        var actions = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
+            BackColor = Color.Transparent,
+            Margin = new Padding(0, 14, 0, 0),
+            Padding = Padding.Empty,
+        };
+        EnableDoubleBuffering(actions);
+
+        _signInButton.Margin = new Padding(0, 0, 10, 10);
+        _signOutButton.Margin = new Padding(0, 0, 0, 10);
+
+        _signInButton.Click += async (_, _) => await SignInAsync();
+        _signOutButton.Click += async (_, _) => await SignOutAsync();
+
+        actions.Controls.Add(_signInButton);
+        actions.Controls.Add(_signOutButton);
+
+        return BuildSettingsCard("Online Account", new Control[]
+        {
+            BuildFormRow("Provider", CreateBodyLabel("Microsoft device code -> Xbox Live -> Minecraft services")),
+            BuildFormRow("Client ID", _microsoftAuthClientIdTextBox),
+            BuildFormRow("Client ID Tools", clientIdActions),
+            BuildFormRow("Account Status", _onlineAccountStatusLabel),
+            BuildFormRow("Account Details", _onlineAccountDetailsLabel),
+            BuildFormRow("Sync Username", _syncUsernameFromOnlineAccountCheckBox),
+            actions,
+        });
     }
 
     private Panel BuildManagedBridgeSettingsCard()

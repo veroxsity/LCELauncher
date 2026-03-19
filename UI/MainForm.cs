@@ -39,6 +39,7 @@ public sealed partial class MainForm : Form
     private readonly ClientProfileManager _clientProfileManager;
     private readonly ClientInstallService _clientInstallService;
     private readonly BridgeInstallService _bridgeInstallService;
+    private readonly LauncherAuthService _launcherAuthService;
     private readonly BridgeRuntimeManager _bridgeRuntimeManager;
     private readonly LaunchCoordinator _launchCoordinator;
     private readonly LauncherConfig _config;
@@ -62,6 +63,10 @@ public sealed partial class MainForm : Form
     private readonly TextBox _launchArgumentsTextBox;
     private readonly CheckBox _checkForManagedClientUpdatesOnStartupCheckBox;
     private readonly CheckBox _notifyWhenManagedClientUpdateAvailableCheckBox;
+    private readonly CheckBox _syncUsernameFromOnlineAccountCheckBox;
+    private readonly TextBox _microsoftAuthClientIdTextBox;
+    private readonly Label _onlineAccountStatusLabel;
+    private readonly Label _onlineAccountDetailsLabel;
     private readonly Label _managedBridgeStatusLabel;
     private readonly Label _managedBridgeDetailsLabel;
     private readonly Label _managedClientStatusLabel;
@@ -71,6 +76,9 @@ public sealed partial class MainForm : Form
     private readonly Button _installBridgeButton;
     private readonly Button _useManagedBridgeButton;
     private readonly Button _openManagedBridgeButton;
+    private readonly Button _signInButton;
+    private readonly Button _signOutButton;
+    private readonly Button _useCompatibilityAuthClientIdButton;
     private readonly Button _checkNightlyUpdatesButton;
     private readonly Button _installNightlyButton;
     private readonly Button _updateNightlyButton;
@@ -107,8 +115,9 @@ public sealed partial class MainForm : Form
         _clientInstallService = new ClientInstallService(_appPaths, _logger);
         _bridgeInstallService = new BridgeInstallService(_appPaths, _logger);
         _bridgeRuntimeManager = new BridgeRuntimeManager(_appPaths, _logger);
-        _launchCoordinator = new LaunchCoordinator(_serverManager, _clientProfileManager, _bridgeInstallService, _bridgeRuntimeManager, _logger);
         _config = _configService.Load();
+        _launcherAuthService = new LauncherAuthService(_appPaths, _logger, _config);
+        _launchCoordinator = new LaunchCoordinator(_serverManager, _clientProfileManager, _bridgeInstallService, _launcherAuthService, _bridgeRuntimeManager, _logger);
         _serverManager.Normalize(_config);
         _configService.Save(_config);
 
@@ -129,7 +138,7 @@ public sealed partial class MainForm : Form
         EnableDoubleBuffering(this);
 
         _authModeComboBox = CreateComboBox();
-        _authModeComboBox.Items.AddRange(["Local", "Online (planned)"]);
+        _authModeComboBox.Items.AddRange(["Local", "Online"]);
 
         _localUsernameTextBox = CreateTextBox();
         _selectedServerComboBox = CreateComboBox();
@@ -154,6 +163,10 @@ public sealed partial class MainForm : Form
         _launchArgumentsTextBox = CreateTextBox();
         _checkForManagedClientUpdatesOnStartupCheckBox = CreateCheckBox("Check nightly updates when the launcher starts");
         _notifyWhenManagedClientUpdateAvailableCheckBox = CreateCheckBox("Notify me when a newer managed nightly build is available");
+        _syncUsernameFromOnlineAccountCheckBox = CreateCheckBox("Sync username.txt from the signed-in Minecraft account");
+        _microsoftAuthClientIdTextBox = CreateTextBox();
+        _onlineAccountStatusLabel = CreateBodyLabel(string.Empty);
+        _onlineAccountDetailsLabel = CreateBodyLabel(string.Empty);
         _managedBridgeStatusLabel = CreateBodyLabel(string.Empty);
         _managedBridgeDetailsLabel = CreateBodyLabel(string.Empty);
         _managedClientStatusLabel = CreateBodyLabel(string.Empty);
@@ -163,6 +176,9 @@ public sealed partial class MainForm : Form
         _installBridgeButton = CreateSecondaryButton("INSTALL BRIDGE");
         _useManagedBridgeButton = CreateSecondaryButton("USE MANAGED BRIDGE");
         _openManagedBridgeButton = CreateSecondaryButton("OPEN BRIDGE FOLDER");
+        _signInButton = CreateSecondaryButton("SIGN IN");
+        _signOutButton = CreateSecondaryButton("SIGN OUT");
+        _useCompatibilityAuthClientIdButton = CreateSecondaryButton("USE COMPATIBILITY ID");
         _checkNightlyUpdatesButton = CreateSecondaryButton("CHECK FOR UPDATES");
         _installNightlyButton = CreateSecondaryButton("INSTALL NIGHTLY");
         _updateNightlyButton = CreateSecondaryButton("UPDATE CLIENT");
@@ -192,6 +208,7 @@ public sealed partial class MainForm : Form
         WireEvents();
         LoadConfigIntoControls();
         RefreshServerViews();
+        RefreshOnlineAccountStatus();
         RefreshStatus();
         RefreshManagedBridgeStatus();
         RefreshManagedInstallStatus();

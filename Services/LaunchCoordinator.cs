@@ -8,6 +8,7 @@ public sealed class LaunchCoordinator
     private readonly ServerManager _serverManager;
     private readonly ClientProfileManager _clientProfileManager;
     private readonly BridgeInstallService _bridgeInstallService;
+    private readonly LauncherAuthService _launcherAuthService;
     private readonly BridgeRuntimeManager _bridgeRuntimeManager;
     private readonly LauncherLogger _logger;
 
@@ -15,12 +16,14 @@ public sealed class LaunchCoordinator
         ServerManager serverManager,
         ClientProfileManager clientProfileManager,
         BridgeInstallService bridgeInstallService,
+        LauncherAuthService launcherAuthService,
         BridgeRuntimeManager bridgeRuntimeManager,
         LauncherLogger logger)
     {
         _serverManager = serverManager;
         _clientProfileManager = clientProfileManager;
         _bridgeInstallService = bridgeInstallService;
+        _launcherAuthService = launcherAuthService;
         _bridgeRuntimeManager = bridgeRuntimeManager;
         _logger = logger;
     }
@@ -29,12 +32,13 @@ public sealed class LaunchCoordinator
     {
         _serverManager.Normalize(config);
 
+        BridgeAuthContext? authContext = null;
         if (config.AuthMode == AuthMode.Online)
         {
-            throw new InvalidOperationException("Online auth is planned for phase two and is not implemented yet.");
+            authContext = await _launcherAuthService.GetBridgeAuthContextAsync(cancellationToken);
         }
 
-        _clientProfileManager.PrepareClientFiles(config);
+        _clientProfileManager.PrepareClientFiles(config, authContext?.MinecraftUsername);
 
         if (selectedServer?.Type == ServerType.JavaBridge)
         {
@@ -44,12 +48,12 @@ public sealed class LaunchCoordinator
                 config.BridgeJarPath = bridgeInstall.BridgeJarPath;
             }
 
-            if (selectedServer.RequiresOnlineAuth)
+            if (selectedServer.RequiresOnlineAuth && config.AuthMode != AuthMode.Online)
             {
-                throw new InvalidOperationException("This server is marked as requiring online auth. Phase one only supports local auth flow.");
+                throw new InvalidOperationException("This server is marked as requiring online auth. Sign in and switch the launcher to online auth mode first.");
             }
 
-            await _bridgeRuntimeManager.EnsureRunningAsync(config, selectedServer, cancellationToken);
+            await _bridgeRuntimeManager.EnsureRunningAsync(config, selectedServer, authContext, cancellationToken);
         }
         else
         {

@@ -35,14 +35,16 @@ public sealed class ClientProfileManager
         return clientExe;
     }
 
-    public void PrepareClientFiles(LauncherConfig config)
+    public void PrepareClientFiles(LauncherConfig config, string? onlineUsername = null)
     {
         var workingDirectory = GetClientWorkingDirectory(config);
         Directory.CreateDirectory(workingDirectory);
 
-        var username = string.IsNullOrWhiteSpace(config.LocalUsername) ? "Player" : config.LocalUsername.Trim();
+        var username = !string.IsNullOrWhiteSpace(onlineUsername) && config.AuthMode == AuthMode.Online && config.SyncUsernameFromOnlineAccount
+            ? onlineUsername.Trim()
+            : string.IsNullOrWhiteSpace(config.LocalUsername) ? "Player" : config.LocalUsername.Trim();
         File.WriteAllText(Path.Combine(workingDirectory, "username.txt"), $"{username}{Environment.NewLine}");
-        _logger.Info($"Updated username.txt with local name '{username}'.");
+        _logger.Info($"Updated username.txt with name '{username}'.");
 
         var serverEntries = _serverManager.BuildClientServerEntries(config);
         ServerListWriter.Write(Path.Combine(workingDirectory, "servers.db"), serverEntries);

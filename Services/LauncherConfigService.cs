@@ -25,6 +25,7 @@ public sealed class LauncherConfigService
         Directory.CreateDirectory(_paths.RuntimeRoot);
         Directory.CreateDirectory(_paths.DownloadsRoot);
         Directory.CreateDirectory(_paths.InstallsRoot);
+        Directory.CreateDirectory(_paths.AuthRoot);
 
         LauncherConfig config;
         if (File.Exists(_paths.ConfigPath))
@@ -53,6 +54,12 @@ public sealed class LauncherConfigService
 
     private void ApplyDiscoveredDefaults(LauncherConfig config)
     {
+        if (string.IsNullOrWhiteSpace(config.MicrosoftAuthClientId))
+        {
+            config.MicrosoftAuthClientId = LauncherAuthService.DefaultCompatibilityClientId;
+            _logger.Info($"Defaulted Microsoft auth client ID to compatibility value {config.MicrosoftAuthClientId}.");
+        }
+
         var repoRoot = TryFindRepoRoot(AppContext.BaseDirectory);
 
         if (config.PreferManagedClientInstall)

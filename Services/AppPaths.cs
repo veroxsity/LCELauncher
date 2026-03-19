@@ -12,6 +12,7 @@ public sealed class AppPaths
         RuntimeRoot = Path.Combine(DataRoot, "runtime");
         DownloadsRoot = Path.Combine(DataRoot, "downloads");
         InstallsRoot = Path.Combine(DataRoot, "installs");
+        AuthRoot = Path.Combine(DataRoot, "auth");
     }
 
     public string DataRoot { get; }
@@ -23,6 +24,12 @@ public sealed class AppPaths
     public string DownloadsRoot { get; }
 
     public string InstallsRoot { get; }
+
+    public string AuthRoot { get; }
+
+    public string MsalTokenCachePath => Path.Combine(AuthRoot, "msal.cache");
+
+    public string OnlineAccountProfilePath => Path.Combine(AuthRoot, "online-account.json");
 
     public string ManagedBridgeInstallRoot => Path.Combine(DataRoot, "bridge");
 

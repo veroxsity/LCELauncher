@@ -31,17 +31,23 @@ public sealed class BridgeInstallService
     public async Task<ManagedBridgeInstallInfo> EnsureManagedBridgeInstalledAsync(CancellationToken cancellationToken)
     {
         var existing = GetManagedInstallInfo();
-        if (existing.IsInstalled)
+        var sourcePath = FindSourceBridgeJar();
+        if (sourcePath is null && existing.IsInstalled)
         {
             _logger.Info($"Using managed bridge runtime at {existing.BridgeJarPath}.");
             return existing;
         }
 
-        var sourcePath = FindSourceBridgeJar();
         if (sourcePath is null)
         {
             throw new InvalidOperationException(
                 "No bridge runtime source was found. Bundle bootstrap-standalone.jar with the launcher or build the bridge repo locally.");
+        }
+
+        if (existing.IsInstalled && !IsSourceNewer(sourcePath, existing.BridgeJarPath))
+        {
+            _logger.Info($"Using managed bridge runtime at {existing.BridgeJarPath}.");
+            return existing;
         }
 
         Directory.CreateDirectory(_paths.ManagedBridgeInstallRoot);
@@ -62,6 +68,18 @@ public sealed class BridgeInstallService
         File.Move(tempPath, destinationPath);
         _logger.Info($"Installed managed bridge runtime from {sourcePath} to {destinationPath}.");
         return GetManagedInstallInfo();
+    }
+
+    private static bool IsSourceNewer(string sourcePath, string destinationPath)
+    {
+        if (!File.Exists(destinationPath))
+        {
+            return true;
+        }
+
+        var source = new FileInfo(sourcePath);
+        var destination = new FileInfo(destinationPath);
+        return source.Length != destination.Length || source.LastWriteTimeUtc > destination.LastWriteTimeUtc;
     }
 
     private string? FindSourceBridgeJar()
@@ -90,11 +108,18 @@ public sealed class BridgeInstallService
             return null;
         }
 
-        var preferred = Path.Combine(repoRoot, "bridge", "scripts", "output");
-        var fallback = Path.Combine(repoRoot, "bridge", "_build", "bootstrap-standalone", "libs");
-        var bridgeJar =
-            TryFindLatestFile(preferred, "*.jar") ??
-            TryFindLatestFile(fallback, "*.jar");
+        var candidates = new[]
+        {
+            TryFindLatestFile(Path.Combine(repoRoot, "bridge", "scripts", "output"), "*.jar"),
+            TryFindLatestFile(Path.Combine(repoRoot, "bridge", "_build", "bootstrap-standalone", "libs"), "*.jar"),
+        }
+        .Where(path => !string.IsNullOrWhiteSpace(path))
+        .Select(path => new FileInfo(path!))
+        .OrderByDescending(file => file.LastWriteTimeUtc)
+        .Select(file => file.FullName)
+        .ToArray();
+
+        var bridgeJar = candidates.FirstOrDefault();
 
         if (bridgeJar is not null)
         {

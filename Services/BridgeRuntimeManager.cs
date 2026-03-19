@@ -21,7 +21,7 @@ public sealed class BridgeRuntimeManager
             ? "No active bridge"
             : $"{_activeBridge.ServerDisplayName} on 127.0.0.1:{_activeBridge.LocalPort}";
 
-    public async Task EnsureRunningAsync(LauncherConfig config, ServerEntry server, CancellationToken cancellationToken)
+    public async Task EnsureRunningAsync(LauncherConfig config, ServerEntry server, BridgeAuthContext? authContext, CancellationToken cancellationToken)
     {
         if (server.Type != ServerType.JavaBridge || server.LocalBridgePort is null)
         {
@@ -55,7 +55,7 @@ public sealed class BridgeRuntimeManager
         Directory.CreateDirectory(runtimeDirectory);
 
         var configPath = Path.Combine(runtimeDirectory, "config.yml");
-        File.WriteAllText(configPath, BridgeConfigRenderer.Render(server));
+        File.WriteAllText(configPath, BridgeConfigRenderer.Render(server, authContext));
 
         var startInfo = new ProcessStartInfo
         {
