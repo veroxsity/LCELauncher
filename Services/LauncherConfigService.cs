@@ -60,16 +60,19 @@ public sealed class LauncherConfigService
             _logger.Info($"Defaulted Microsoft auth client ID to compatibility value {config.MicrosoftAuthClientId}.");
         }
 
+        MigrateLegacyManagedClientUpdateState(config);
+
         var repoRoot = TryFindRepoRoot(AppContext.BaseDirectory);
+        var preferredManagedClientPath = _paths.GetManagedClientExecutablePath(config.ManagedClientLaunchStream);
 
         if (config.PreferManagedClientInstall)
         {
-            if (File.Exists(_paths.NightlyClientExecutablePath))
+            if (File.Exists(preferredManagedClientPath))
             {
-                if (!PathsEqual(config.ClientExecutablePath, _paths.NightlyClientExecutablePath))
+                if (!PathsEqual(config.ClientExecutablePath, preferredManagedClientPath))
                 {
-                    config.ClientExecutablePath = _paths.NightlyClientExecutablePath;
-                    _logger.Info($"Using managed nightly client install at {_paths.NightlyClientExecutablePath}");
+                    config.ClientExecutablePath = preferredManagedClientPath;
+                    _logger.Info($"Using managed {config.ManagedClientLaunchStream.GetDisplayName().ToLowerInvariant()} client install at {preferredManagedClientPath}");
                 }
             }
             else if (repoRoot is not null && IsWorkspaceClientPath(repoRoot, config.ClientExecutablePath))
@@ -185,5 +188,35 @@ public sealed class LauncherConfigService
         }
 
         return string.Equals(Path.GetFullPath(left), Path.GetFullPath(right), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void MigrateLegacyManagedClientUpdateState(LauncherConfig config)
+    {
+        var key = config.ManagedClientLaunchStream.GetKey();
+        if (config.ManagedClientUpdateStates.ContainsKey(key))
+        {
+            return;
+        }
+
+        var hasLegacyValues =
+            config.ManagedClientLastCheckedAtUtc is not null ||
+            !string.IsNullOrWhiteSpace(config.ManagedClientLastUpdateStatusText) ||
+            config.ManagedClientLastUpdateAvailable ||
+            !string.IsNullOrWhiteSpace(config.ManagedClientLastKnownLatestVersion) ||
+            !string.IsNullOrWhiteSpace(config.ManagedClientLastNotifiedVersion);
+
+        if (!hasLegacyValues)
+        {
+            return;
+        }
+
+        config.ManagedClientUpdateStates[key] = new ManagedClientUpdateState
+        {
+            LastCheckedAtUtc = config.ManagedClientLastCheckedAtUtc,
+            LastUpdateStatusText = config.ManagedClientLastUpdateStatusText,
+            LastUpdateAvailable = config.ManagedClientLastUpdateAvailable,
+            LastKnownLatestVersion = config.ManagedClientLastKnownLatestVersion,
+            LastNotifiedVersion = config.ManagedClientLastNotifiedVersion,
+        };
     }
 }

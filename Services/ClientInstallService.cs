@@ -7,7 +7,6 @@ namespace LceLauncher.Services;
 
 public sealed class ClientInstallService
 {
-    private static readonly Uri NightlyReleaseUri = new("https://api.github.com/repos/smartcmd/MinecraftConsoles/releases/tags/nightly");
     private static readonly HttpClient HttpClient = CreateHttpClient();
 
     private readonly AppPaths _paths;
@@ -19,110 +18,163 @@ public sealed class ClientInstallService
         _logger = logger;
     }
 
-    public bool HasManagedInstall() => File.Exists(_paths.NightlyClientExecutablePath);
+    public bool HasManagedInstall(ManagedClientStream stream) => File.Exists(_paths.GetManagedClientExecutablePath(stream));
 
-    public ManagedClientInstallInfo GetManagedInstallInfo()
+    public ManagedClientInstallInfo GetManagedInstallInfo(ManagedClientStream stream)
     {
-        var metadata = ReadMetadata();
+        var metadata = ReadMetadata(stream);
 
         return new ManagedClientInstallInfo
         {
-            IsInstalled = HasManagedInstall(),
-            InstallRoot = _paths.NightlyInstallRoot,
-            ClientExecutablePath = _paths.NightlyClientExecutablePath,
-            DisplayVersion = metadata?.ReleaseName ?? "Nightly",
+            Stream = stream,
+            StreamLabel = stream.GetDisplayName(),
+            IsInstalled = HasManagedInstall(stream),
+            InstallRoot = _paths.GetManagedClientInstallRoot(stream),
+            ClientExecutablePath = _paths.GetManagedClientExecutablePath(stream),
+            DisplayVersion = metadata?.ReleaseName ?? GetDefinition(stream).DefaultVersionName,
             PublishedAtUtc = metadata?.PublishedAtUtc,
             InstalledAtUtc = metadata?.InstalledAtUtc,
         };
     }
 
-    public async Task<ManagedClientUpdateInfo> GetNightlyUpdateInfoAsync(CancellationToken cancellationToken)
+    public async Task<ManagedClientUpdateInfo> GetUpdateInfoAsync(ManagedClientStream stream, CancellationToken cancellationToken)
     {
-        var installInfo = GetManagedInstallInfo();
+        var definition = GetDefinition(stream);
+        var installInfo = GetManagedInstallInfo(stream);
         if (!installInfo.IsInstalled)
         {
             return new ManagedClientUpdateInfo
             {
+                Stream = stream,
+                StreamLabel = stream.GetDisplayName(),
                 IsInstalled = false,
                 CheckedRemotely = false,
                 UpdateAvailable = false,
+                SupportsLightweightUpdate = definition.SupportsLightweightUpdates,
                 CurrentVersion = "Not installed",
-                LatestVersion = "Nightly",
-                StatusText = "Managed nightly client is not installed.",
+                LatestVersion = definition.DefaultVersionName,
+                StatusText = $"Managed {stream.GetDisplayName().ToLowerInvariant()} client is not installed.",
             };
         }
 
-        var release = await FetchNightlyReleaseAsync(cancellationToken);
-        var metadata = ReadMetadata();
+        var release = await FetchReleaseAsync(definition, cancellationToken);
+        var metadata = ReadMetadata(stream);
         var currentVersion = metadata?.ReleaseName ?? installInfo.DisplayVersion;
         var updateAvailable = metadata is null ||
-            (!string.IsNullOrWhiteSpace(release.ExecutableAsset.Sha256) &&
-             !string.Equals(metadata.ExecutableSha256, release.ExecutableAsset.Sha256, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrWhiteSpace(release.ZipAsset.Sha256) &&
+             !string.Equals(metadata.ZipSha256, release.ZipAsset.Sha256, StringComparison.OrdinalIgnoreCase)) ||
             metadata.PublishedAtUtc != release.PublishedAtUtc;
+
+        if (definition.SupportsLightweightUpdates &&
+            metadata is not null &&
+            !string.IsNullOrWhiteSpace(release.ExecutableAsset?.Sha256) &&
+            !string.Equals(metadata.ExecutableSha256, release.ExecutableAsset.Sha256, StringComparison.OrdinalIgnoreCase))
+        {
+            updateAvailable = true;
+        }
 
         return new ManagedClientUpdateInfo
         {
+            Stream = stream,
+            StreamLabel = stream.GetDisplayName(),
             IsInstalled = true,
             CheckedRemotely = true,
             UpdateAvailable = updateAvailable,
+            SupportsLightweightUpdate = definition.SupportsLightweightUpdates,
             CurrentVersion = currentVersion,
             LatestVersion = release.ReleaseName,
             LatestPublishedAtUtc = release.PublishedAtUtc,
             StatusText = updateAvailable
-                ? $"Update available: {release.ReleaseName}"
+                ? $"Update available for {stream.GetDisplayName().ToLowerInvariant()}: {release.ReleaseName}"
                 : $"Up to date: {release.ReleaseName}",
         };
     }
 
-    public async Task<ManagedClientInstallInfo> InstallNightlyAsync(CancellationToken cancellationToken)
+    public Task<ManagedClientInstallInfo> InstallAsync(ManagedClientStream stream, CancellationToken cancellationToken)
     {
-        return await ReplaceManagedInstallFromNightlyZipAsync(
+        return ReplaceManagedInstallFromZipAsync(
+            stream,
             cancellationToken,
             "Installing",
             "Installed",
-            "No managed nightly install found. Installing the full nightly package.");
+            $"No managed {stream.GetDisplayName().ToLowerInvariant()} client install found. Installing the full package.");
     }
 
-    public async Task<ManagedClientInstallInfo> RepairNightlyAsync(CancellationToken cancellationToken)
+    public Task<ManagedClientInstallInfo> RepairAsync(ManagedClientStream stream, CancellationToken cancellationToken)
     {
-        return await ReplaceManagedInstallFromNightlyZipAsync(
+        return ReplaceManagedInstallFromZipAsync(
+            stream,
             cancellationToken,
             "Repairing",
             "Repaired",
-            "Managed nightly install is missing or incomplete. Repairing it from the full nightly package.");
+            $"Managed {stream.GetDisplayName().ToLowerInvariant()} client install is missing or incomplete. Repairing it from the full package.");
     }
 
-    public async Task<ManagedClientInstallInfo> UpdateNightlyExecutableAsync(CancellationToken cancellationToken)
+    public async Task<ManagedClientInstallInfo> UpdateAsync(ManagedClientStream stream, CancellationToken cancellationToken)
     {
-        if (!HasManagedInstall())
+        var definition = GetDefinition(stream);
+        if (!HasManagedInstall(stream))
         {
-            _logger.Info("No managed nightly install found. Falling back to full nightly install.");
-            return await InstallNightlyAsync(cancellationToken);
+            _logger.Info($"No managed {stream.GetDisplayName().ToLowerInvariant()} client install found. Falling back to full install.");
+            return await InstallAsync(stream, cancellationToken);
         }
 
-        var release = await FetchNightlyReleaseAsync(cancellationToken);
-        var metadata = ReadMetadata();
-        if (metadata is not null &&
-            string.Equals(metadata.ExecutableSha256, release.ExecutableAsset.Sha256, StringComparison.OrdinalIgnoreCase) &&
-            metadata.PublishedAtUtc == release.PublishedAtUtc)
+        var release = await FetchReleaseAsync(definition, cancellationToken);
+        var metadata = ReadMetadata(stream);
+        var zipMatches = metadata is not null &&
+            string.Equals(metadata.ZipSha256, release.ZipAsset.Sha256, StringComparison.OrdinalIgnoreCase) &&
+            metadata.PublishedAtUtc == release.PublishedAtUtc;
+
+        if (!definition.SupportsLightweightUpdates)
         {
-            _logger.Info("Managed nightly client is already up to date.");
-            return GetManagedInstallInfo();
+            if (zipMatches)
+            {
+                _logger.Info($"Managed {stream.GetDisplayName().ToLowerInvariant()} client is already up to date.");
+                return GetManagedInstallInfo(stream);
+            }
+
+            _logger.Info($"Managed {stream.GetDisplayName().ToLowerInvariant()} client requires a full zip update.");
+            return await ReplaceManagedInstallFromZipAsync(
+                stream,
+                cancellationToken,
+                "Updating",
+                "Updated",
+                $"Managed {stream.GetDisplayName().ToLowerInvariant()} client install exists. Replacing it from the latest zip.");
         }
 
-        _logger.Info($"Downloading {release.ExecutableAsset.Name} for lightweight nightly update.");
+        var executableShaMatches = metadata is not null &&
+            string.Equals(metadata.ExecutableSha256, release.ExecutableAsset?.Sha256, StringComparison.OrdinalIgnoreCase);
 
-        Directory.CreateDirectory(_paths.NightlyInstallRoot);
-        var targetPath = _paths.NightlyClientExecutablePath;
+        if (zipMatches && executableShaMatches)
+        {
+            _logger.Info($"Managed {stream.GetDisplayName().ToLowerInvariant()} client is already up to date.");
+            return GetManagedInstallInfo(stream);
+        }
+
+        if (release.ExecutableAsset is null)
+        {
+            _logger.Info($"No lightweight executable asset was found for {stream.GetDisplayName().ToLowerInvariant()}. Falling back to full zip update.");
+            return await ReplaceManagedInstallFromZipAsync(
+                stream,
+                cancellationToken,
+                "Updating",
+                "Updated",
+                $"Managed {stream.GetDisplayName().ToLowerInvariant()} client install exists. Replacing it from the latest zip.");
+        }
+
+        _logger.Info($"Downloading {release.ExecutableAsset.Name} for lightweight {stream.GetDisplayName().ToLowerInvariant()} update.");
+
+        Directory.CreateDirectory(_paths.GetManagedClientInstallRoot(stream));
+        var targetPath = _paths.GetManagedClientExecutablePath(stream);
         var tempPath = $"{targetPath}.download";
 
         using var response = await HttpClient.GetAsync(release.ExecutableAsset.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         response.EnsureSuccessStatusCode();
 
-        await using (var stream = await response.Content.ReadAsStreamAsync(cancellationToken))
+        await using (var streamHandle = await response.Content.ReadAsStreamAsync(cancellationToken))
         await using (var file = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
         {
-            await stream.CopyToAsync(file, cancellationToken);
+            await streamHandle.CopyToAsync(file, cancellationToken);
         }
 
         if (File.Exists(targetPath))
@@ -131,7 +183,8 @@ public sealed class ClientInstallService
         }
 
         File.Move(tempPath, targetPath);
-        WriteMetadata(new NightlyInstallMetadata(
+        WriteMetadata(stream, new ManagedClientInstallMetadata(
+            definition.StreamKey,
             release.ReleaseTag,
             release.ReleaseName,
             release.PublishedAtUtc,
@@ -139,95 +192,109 @@ public sealed class ClientInstallService
             release.ZipAsset.Sha256,
             release.ExecutableAsset.Sha256));
 
-        _logger.Info($"Updated managed nightly executable at {targetPath}.");
-        return GetManagedInstallInfo();
+        _logger.Info($"Updated managed {stream.GetDisplayName().ToLowerInvariant()} executable at {targetPath}.");
+        return GetManagedInstallInfo(stream);
     }
 
-    private async Task<ManagedClientInstallInfo> ReplaceManagedInstallFromNightlyZipAsync(
+    private async Task<ManagedClientInstallInfo> ReplaceManagedInstallFromZipAsync(
+        ManagedClientStream stream,
         CancellationToken cancellationToken,
         string startVerb,
         string completeVerb,
         string missingInstallLogMessage)
     {
+        var definition = GetDefinition(stream);
+        var installRoot = _paths.GetManagedClientInstallRoot(stream);
+        var downloadPath = _paths.GetManagedClientDownloadPath(stream);
+
         Directory.CreateDirectory(_paths.DownloadsRoot);
         Directory.CreateDirectory(_paths.InstallsRoot);
 
-        if (!HasManagedInstall())
+        if (!HasManagedInstall(stream))
         {
             _logger.Info(missingInstallLogMessage);
         }
 
-        var release = await FetchNightlyReleaseAsync(cancellationToken);
-        _logger.Info($"{startVerb} managed nightly client from {release.ReleaseName}.");
+        var release = await FetchReleaseAsync(definition, cancellationToken);
+        _logger.Info($"{startVerb} managed {stream.GetDisplayName().ToLowerInvariant()} client from {release.ReleaseName}.");
         _logger.Info($"Downloading {release.ZipAsset.Name} from {release.ReleaseName}.");
 
-        var downloadPath = await DownloadFileAsync(release.ZipAsset.DownloadUrl, _paths.NightlyDownloadPath, cancellationToken);
-        _logger.Info($"Saved nightly zip to {downloadPath}.");
+        var downloadedPath = await DownloadFileAsync(release.ZipAsset.DownloadUrl, downloadPath, cancellationToken);
+        _logger.Info($"Saved {stream.GetDisplayName().ToLowerInvariant()} client zip to {downloadedPath}.");
 
-        var stagingRoot = Path.Combine(_paths.InstallsRoot, $".nightly-staging-{Guid.NewGuid():N}");
-        var installRoot = Path.Combine(_paths.InstallsRoot, $".nightly-install-{Guid.NewGuid():N}");
+        var stagingRoot = Path.Combine(_paths.InstallsRoot, $".{definition.StreamKey}-staging-{Guid.NewGuid():N}");
+        var installStagingRoot = Path.Combine(_paths.InstallsRoot, $".{definition.StreamKey}-install-{Guid.NewGuid():N}");
         Directory.CreateDirectory(stagingRoot);
 
         try
         {
-            _logger.Info("Extracting nightly client zip.");
-            ZipFile.ExtractToDirectory(downloadPath, stagingRoot);
+            _logger.Info($"Extracting {stream.GetDisplayName().ToLowerInvariant()} client zip.");
+            ZipFile.ExtractToDirectory(downloadedPath, stagingRoot);
 
             var extractedRoot = FindInstallRoot(stagingRoot);
-            CopyDirectory(extractedRoot, installRoot);
+            CopyDirectory(extractedRoot, installStagingRoot);
 
-            if (!File.Exists(Path.Combine(installRoot, "Minecraft.Client.exe")))
+            if (!File.Exists(Path.Combine(installStagingRoot, "Minecraft.Client.exe")))
             {
-                throw new InvalidOperationException("Nightly install did not contain Minecraft.Client.exe.");
+                throw new InvalidOperationException($"{stream.GetDisplayName()} install did not contain Minecraft.Client.exe.");
             }
 
-            PreserveKnownUserFiles(_paths.NightlyInstallRoot, installRoot);
+            PreserveKnownUserFiles(installRoot, installStagingRoot);
 
-            ReplaceDirectory(_paths.NightlyInstallRoot, installRoot);
-            WriteMetadata(new NightlyInstallMetadata(
+            ReplaceDirectory(installRoot, installStagingRoot);
+            WriteMetadata(stream, new ManagedClientInstallMetadata(
+                definition.StreamKey,
                 release.ReleaseTag,
                 release.ReleaseName,
                 release.PublishedAtUtc,
                 DateTimeOffset.UtcNow,
                 release.ZipAsset.Sha256,
-                release.ExecutableAsset.Sha256));
+                release.ExecutableAsset?.Sha256));
 
-            _logger.Info($"{completeVerb} managed nightly client at {_paths.NightlyInstallRoot}.");
-            return GetManagedInstallInfo();
+            _logger.Info($"{completeVerb} managed {stream.GetDisplayName().ToLowerInvariant()} client at {installRoot}.");
+            return GetManagedInstallInfo(stream);
         }
         finally
         {
             TryDeleteDirectory(stagingRoot);
-            TryDeleteDirectory(installRoot);
+            TryDeleteDirectory(installStagingRoot);
         }
     }
 
-    private async Task<NightlyRelease> FetchNightlyReleaseAsync(CancellationToken cancellationToken)
+    private async Task<ManagedClientRelease> FetchReleaseAsync(ManagedClientStreamDefinition definition, CancellationToken cancellationToken)
     {
-        using var response = await HttpClient.GetAsync(NightlyReleaseUri, cancellationToken);
+        using var response = await HttpClient.GetAsync(definition.ReleaseUri, cancellationToken);
         response.EnsureSuccessStatusCode();
 
         using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
         var root = document.RootElement;
         var assets = root.GetProperty("assets").EnumerateArray().ToArray();
 
-        var zipAsset = assets.FirstOrDefault(asset => asset.GetProperty("name").GetString() == "LCEWindows64.zip");
-        var exeAsset = assets.FirstOrDefault(asset => asset.GetProperty("name").GetString() == "Minecraft.Client.exe");
-
-        if (zipAsset.ValueKind == JsonValueKind.Undefined || exeAsset.ValueKind == JsonValueKind.Undefined)
+        var zipAsset = assets.FirstOrDefault(asset => asset.GetProperty("name").GetString() == definition.ZipAssetName);
+        if (zipAsset.ValueKind == JsonValueKind.Undefined)
         {
-            throw new InvalidOperationException("Nightly release assets are missing the expected client downloads.");
+            throw new InvalidOperationException($"{definition.DisplayName} release assets are missing the expected zip download.");
         }
 
-        return new NightlyRelease(
+        JsonElement? executableAssetElement = null;
+        if (!string.IsNullOrWhiteSpace(definition.ExecutableAssetName))
+        {
+            var candidate = assets.FirstOrDefault(asset => asset.GetProperty("name").GetString() == definition.ExecutableAssetName);
+            if (candidate.ValueKind != JsonValueKind.Undefined)
+            {
+                executableAssetElement = candidate;
+            }
+        }
+
+        return new ManagedClientRelease(
             root.GetProperty("tag_name").GetString() ?? "nightly",
-            root.GetProperty("name").GetString() ?? "Nightly Client Release",
+            root.GetProperty("name").GetString() ?? definition.DefaultVersionName,
             root.GetProperty("published_at").GetDateTimeOffset(),
             ParseAsset(zipAsset),
-            ParseAsset(exeAsset));
+            executableAssetElement is null ? null : ParseAsset(executableAssetElement.Value));
     }
 
-    private static NightlyAsset ParseAsset(JsonElement asset) =>
+    private static ManagedClientAsset ParseAsset(JsonElement asset) =>
         new(
             asset.GetProperty("name").GetString() ?? string.Empty,
             new Uri(asset.GetProperty("browser_download_url").GetString() ?? throw new InvalidOperationException("Missing browser download URL.")),
@@ -260,7 +327,7 @@ public sealed class ClientInstallService
         var clientExe = Directory.EnumerateFiles(extractionRoot, "Minecraft.Client.exe", SearchOption.AllDirectories).FirstOrDefault();
         if (clientExe is null)
         {
-            throw new InvalidOperationException("Extracted nightly zip did not contain Minecraft.Client.exe.");
+            throw new InvalidOperationException("Extracted client zip did not contain Minecraft.Client.exe.");
         }
 
         return Path.GetDirectoryName(clientExe) ?? extractionRoot;
@@ -315,27 +382,28 @@ public sealed class ClientInstallService
         }
     }
 
-    private void WriteMetadata(NightlyInstallMetadata metadata)
+    private void WriteMetadata(ManagedClientStream stream, ManagedClientInstallMetadata metadata)
     {
-        Directory.CreateDirectory(_paths.NightlyInstallRoot);
+        Directory.CreateDirectory(_paths.GetManagedClientInstallRoot(stream));
         var json = JsonSerializer.Serialize(metadata, new JsonSerializerOptions { WriteIndented = true });
-        File.WriteAllText(_paths.NightlyMetadataPath, json);
+        File.WriteAllText(_paths.GetManagedClientMetadataPath(stream), json);
     }
 
-    private NightlyInstallMetadata? ReadMetadata()
+    private ManagedClientInstallMetadata? ReadMetadata(ManagedClientStream stream)
     {
-        if (!File.Exists(_paths.NightlyMetadataPath))
+        var metadataPath = _paths.GetManagedClientMetadataPath(stream);
+        if (!File.Exists(metadataPath))
         {
             return null;
         }
 
         try
         {
-            return JsonSerializer.Deserialize<NightlyInstallMetadata>(File.ReadAllText(_paths.NightlyMetadataPath));
+            return JsonSerializer.Deserialize<ManagedClientInstallMetadata>(File.ReadAllText(metadataPath));
         }
         catch (Exception ex)
         {
-            _logger.Warn($"Failed to read nightly install metadata: {ex.Message}");
+            _logger.Warn($"Failed to read {stream.GetDisplayName().ToLowerInvariant()} install metadata: {ex.Message}");
             return null;
         }
     }
@@ -362,16 +430,50 @@ public sealed class ClientInstallService
         return client;
     }
 
-    private sealed record NightlyRelease(
+    private static ManagedClientStreamDefinition GetDefinition(ManagedClientStream stream) => stream switch
+    {
+        ManagedClientStream.Release => new ManagedClientStreamDefinition(
+            stream,
+            stream.GetKey(),
+            stream.GetDisplayName(),
+            "Release Nightly",
+            new Uri("https://api.github.com/repos/smartcmd/MinecraftConsoles/releases/tags/nightly"),
+            "LCEWindows64.zip",
+            "Minecraft.Client.exe",
+            true),
+        ManagedClientStream.Debug => new ManagedClientStreamDefinition(
+            stream,
+            stream.GetKey(),
+            stream.GetDisplayName(),
+            "Debug Nightly",
+            new Uri("https://api.github.com/repos/veroxsity/LCEDebug/releases/tags/nightly"),
+            "LCEDebug-nightly-win-x64.zip",
+            null,
+            false),
+        _ => throw new ArgumentOutOfRangeException(nameof(stream), stream, null),
+    };
+
+    private sealed record ManagedClientStreamDefinition(
+        ManagedClientStream Stream,
+        string StreamKey,
+        string DisplayName,
+        string DefaultVersionName,
+        Uri ReleaseUri,
+        string ZipAssetName,
+        string? ExecutableAssetName,
+        bool SupportsLightweightUpdates);
+
+    private sealed record ManagedClientRelease(
         string ReleaseTag,
         string ReleaseName,
         DateTimeOffset PublishedAtUtc,
-        NightlyAsset ZipAsset,
-        NightlyAsset ExecutableAsset);
+        ManagedClientAsset ZipAsset,
+        ManagedClientAsset? ExecutableAsset);
 
-    private sealed record NightlyAsset(string Name, Uri DownloadUrl, string? Sha256);
+    private sealed record ManagedClientAsset(string Name, Uri DownloadUrl, string? Sha256);
 
-    private sealed record NightlyInstallMetadata(
+    private sealed record ManagedClientInstallMetadata(
+        string StreamKey,
         string ReleaseTag,
         string ReleaseName,
         DateTimeOffset PublishedAtUtc,

@@ -1,9 +1,9 @@
+using LceLauncher.Models;
+
 namespace LceLauncher.Services;
 
 public sealed class AppPaths
 {
-    private const string NightlyChannel = "nightly";
-
     public AppPaths()
     {
         var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
@@ -39,15 +39,17 @@ public sealed class AppPaths
 
     public string ManagedBridgeDownloadPath => Path.Combine(DownloadsRoot, "bootstrap-standalone-latest.jar");
 
-    public string NightlyInstallRoot => GetClientInstallDirectory(NightlyChannel);
-
-    public string NightlyClientExecutablePath => Path.Combine(NightlyInstallRoot, "Minecraft.Client.exe");
-
-    public string NightlyMetadataPath => Path.Combine(NightlyInstallRoot, "release.json");
-
-    public string NightlyDownloadPath => Path.Combine(DownloadsRoot, "LCEWindows64-nightly.zip");
-
     public string GetBridgeRuntimeDirectory(string serverId) => Path.Combine(RuntimeRoot, "bridges", serverId);
 
     public string GetClientInstallDirectory(string channel) => Path.Combine(InstallsRoot, channel);
+
+    public string GetManagedClientInstallRoot(ManagedClientStream stream) => GetClientInstallDirectory(stream.GetInstallDirectoryName());
+
+    public string GetManagedClientExecutablePath(ManagedClientStream stream) => Path.Combine(GetManagedClientInstallRoot(stream), "Minecraft.Client.exe");
+
+    public string GetManagedClientMetadataPath(ManagedClientStream stream) => Path.Combine(GetManagedClientInstallRoot(stream), "release.json");
+
+    public string GetManagedClientDownloadPath(ManagedClientStream stream) => Path.Combine(
+        DownloadsRoot,
+        stream == ManagedClientStream.Debug ? "LCEDebug-nightly-win-x64.zip" : "LCEWindows64-nightly.zip");
 }

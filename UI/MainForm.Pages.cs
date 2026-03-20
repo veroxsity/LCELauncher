@@ -312,6 +312,7 @@ public sealed partial class MainForm
         _managedClientDetailsLabel.Margin = new Padding(0, 8, 0, 0);
         _managedClientUpdateLabel.Margin = new Padding(0, 8, 0, 0);
         _managedClientLastCheckedLabel.Margin = new Padding(0, 8, 0, 0);
+        _managedClientSourceLabel.Margin = new Padding(0, 8, 0, 0);
 
         var actions = new FlowLayoutPanel
         {
@@ -337,7 +338,7 @@ public sealed partial class MainForm
         _updateNightlyButton.Click += async (_, _) => await UpdateManagedNightlyAsync();
         _repairNightlyButton.Click += async (_, _) => await RepairManagedNightlyAsync();
         _useManagedNightlyButton.Click += (_, _) => UseManagedNightlyInstall();
-        _openManagedInstallButton.Click += (_, _) => OpenDirectorySafely(_appPaths.NightlyInstallRoot);
+        _openManagedInstallButton.Click += (_, _) => OpenDirectorySafely(_appPaths.GetManagedClientInstallRoot(GetSelectedManagedClientInstallStream()));
 
         actions.Controls.Add(_checkNightlyUpdatesButton);
         actions.Controls.Add(_installNightlyButton);
@@ -348,7 +349,9 @@ public sealed partial class MainForm
 
         return BuildSettingsCard("Managed Client", new Control[]
         {
-            BuildFormRow("Install Channel", CreateBodyLabel("smartcmd nightly")),
+            BuildFormRow("Install Stream", _managedClientInstallStreamComboBox),
+            BuildFormRow("Launch Stream", _managedClientLaunchStreamComboBox),
+            BuildFormRow("Install Source", _managedClientSourceLabel),
             BuildFormRow("Managed Status", _managedClientStatusLabel),
             BuildFormRow("Install Details", _managedClientDetailsLabel),
             BuildFormRow("Update Status", _managedClientUpdateLabel),

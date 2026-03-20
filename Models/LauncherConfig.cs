@@ -4,6 +4,10 @@ public sealed class LauncherConfig
 {
     public bool PreferManagedClientInstall { get; set; } = true;
 
+    public ManagedClientStream ManagedClientInstallStream { get; set; } = ManagedClientStream.Release;
+
+    public ManagedClientStream ManagedClientLaunchStream { get; set; } = ManagedClientStream.Release;
+
     public bool PreferManagedBridgeInstall { get; set; } = true;
 
     public bool CheckForManagedClientUpdatesOnStartup { get; set; } = true;
@@ -45,6 +49,8 @@ public sealed class LauncherConfig
     public string? ManagedClientLastKnownLatestVersion { get; set; }
 
     public string? ManagedClientLastNotifiedVersion { get; set; }
+
+    public Dictionary<string, ManagedClientUpdateState> ManagedClientUpdateStates { get; set; } = [];
 
     public DateTimeOffset? ManagedBridgeLastCheckedAtUtc { get; set; }
 

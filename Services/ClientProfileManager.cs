@@ -24,7 +24,7 @@ public sealed class ClientProfileManager
         var clientExe = config.ClientExecutablePath?.Trim();
         if (string.IsNullOrWhiteSpace(clientExe))
         {
-            throw new InvalidOperationException("Client is not installed. Install the managed nightly client or configure a client executable path.");
+            throw new InvalidOperationException("Client is not installed. Install a managed client stream or configure a client executable path.");
         }
 
         if (!File.Exists(clientExe))

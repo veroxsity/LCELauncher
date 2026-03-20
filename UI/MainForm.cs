@@ -63,6 +63,8 @@ public sealed partial class MainForm : Form
     private readonly TextBox _launchArgumentsTextBox;
     private readonly CheckBox _checkForManagedClientUpdatesOnStartupCheckBox;
     private readonly CheckBox _notifyWhenManagedClientUpdateAvailableCheckBox;
+    private readonly ComboBox _managedClientInstallStreamComboBox;
+    private readonly ComboBox _managedClientLaunchStreamComboBox;
     private readonly CheckBox _syncUsernameFromOnlineAccountCheckBox;
     private readonly TextBox _microsoftAuthClientIdTextBox;
     private readonly Label _onlineAccountStatusLabel;
@@ -75,6 +77,7 @@ public sealed partial class MainForm : Form
     private readonly Label _managedClientDetailsLabel;
     private readonly Label _managedClientUpdateLabel;
     private readonly Label _managedClientLastCheckedLabel;
+    private readonly Label _managedClientSourceLabel;
     private readonly Button _installBridgeButton;
     private readonly Button _checkBridgeUpdatesButton;
     private readonly Button _updateBridgeButton;
@@ -167,8 +170,10 @@ public sealed partial class MainForm : Form
         _firstBridgePortUpDown = CreateNumericUpDown();
         _closeBridgeOnExitCheckBox = CreateCheckBox("Stop managed bridge when the launcher exits");
         _launchArgumentsTextBox = CreateTextBox();
-        _checkForManagedClientUpdatesOnStartupCheckBox = CreateCheckBox("Check nightly updates when the launcher starts");
-        _notifyWhenManagedClientUpdateAvailableCheckBox = CreateCheckBox("Notify me when a newer managed nightly build is available");
+        _checkForManagedClientUpdatesOnStartupCheckBox = CreateCheckBox("Check managed client updates when the launcher starts");
+        _notifyWhenManagedClientUpdateAvailableCheckBox = CreateCheckBox("Notify me when a newer managed client build is available");
+        _managedClientInstallStreamComboBox = CreateComboBox();
+        _managedClientLaunchStreamComboBox = CreateComboBox();
         _syncUsernameFromOnlineAccountCheckBox = CreateCheckBox("Sync username.txt from the signed-in Minecraft account");
         _microsoftAuthClientIdTextBox = CreateTextBox();
         _onlineAccountStatusLabel = CreateBodyLabel(string.Empty);
@@ -179,8 +184,9 @@ public sealed partial class MainForm : Form
         _managedBridgeLastCheckedLabel = CreateBodyLabel("Not checked yet");
         _managedClientStatusLabel = CreateBodyLabel(string.Empty);
         _managedClientDetailsLabel = CreateBodyLabel(string.Empty);
-        _managedClientUpdateLabel = CreateBodyLabel("Checking nightly release...");
+        _managedClientUpdateLabel = CreateBodyLabel("Checking managed client release...");
         _managedClientLastCheckedLabel = CreateBodyLabel("Not checked yet");
+        _managedClientSourceLabel = CreateBodyLabel(string.Empty);
         _installBridgeButton = CreateSecondaryButton("INSTALL BRIDGE");
         _checkBridgeUpdatesButton = CreateSecondaryButton("CHECK FOR UPDATES");
         _updateBridgeButton = CreateSecondaryButton("UPDATE BRIDGE");
@@ -190,13 +196,24 @@ public sealed partial class MainForm : Form
         _signOutButton = CreateSecondaryButton("SIGN OUT");
         _useCompatibilityAuthClientIdButton = CreateSecondaryButton("USE COMPATIBILITY ID");
         _checkNightlyUpdatesButton = CreateSecondaryButton("CHECK FOR UPDATES");
-        _installNightlyButton = CreateSecondaryButton("INSTALL NIGHTLY");
+        _installNightlyButton = CreateSecondaryButton("INSTALL CLIENT");
         _updateNightlyButton = CreateSecondaryButton("UPDATE CLIENT");
         _repairNightlyButton = CreateSecondaryButton("REPAIR CLIENT");
-        _useManagedNightlyButton = CreateSecondaryButton("USE MANAGED INSTALL");
+        _useManagedNightlyButton = CreateSecondaryButton("USE LAUNCH STREAM");
         _openManagedInstallButton = CreateSecondaryButton("OPEN INSTALL FOLDER");
         _checkForManagedBridgeUpdatesOnStartupCheckBox = CreateCheckBox("Check bridge updates when the launcher starts");
         _notifyWhenManagedBridgeUpdateAvailableCheckBox = CreateCheckBox("Notify me when a newer managed bridge release is available");
+
+        _managedClientInstallStreamComboBox.Items.AddRange(
+            Enum.GetValues<ManagedClientStream>()
+                .Select(stream => new ManagedClientStreamSelectionItem(stream, stream.GetDisplayName()))
+                .Cast<object>()
+                .ToArray());
+        _managedClientLaunchStreamComboBox.Items.AddRange(
+            Enum.GetValues<ManagedClientStream>()
+                .Select(stream => new ManagedClientStreamSelectionItem(stream, stream.GetDisplayName()))
+                .Cast<object>()
+                .ToArray());
 
         _logsTextBox = CreateLogsTextBox();
 
