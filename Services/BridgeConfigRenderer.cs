@@ -58,7 +58,7 @@ performance:
   chunk-cache-enabled: true
   chunk-cache-size: 256
   async-compression: true
-  live-tile-updates: false
+  live-tile-updates: true
   forward-chat: true
 
 logging:
