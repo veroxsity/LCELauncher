@@ -106,6 +106,7 @@ public sealed partial class MainForm : Form
     private readonly Queue<string> _visibleLogLines = [];
     private readonly System.Windows.Forms.Timer _logFlushTimer;
     private int _logFlushScheduled;
+    private string _currentPageKey = PageHome;
 
     private readonly Dictionary<string, Control> _pages = new();
     private readonly List<(string Key, Button Button)> _pageButtons = [];
@@ -127,7 +128,7 @@ public sealed partial class MainForm : Form
     public MainForm()
     {
         _appPaths = new AppPaths();
-        _logger = new LauncherLogger();
+        _logger = new LauncherLogger(_appPaths);
         _configService = new LauncherConfigService(_appPaths, _logger);
         _serverManager = new ServerManager();
         _clientProfileManager = new ClientProfileManager(_serverManager, _logger);

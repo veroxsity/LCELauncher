@@ -27,6 +27,12 @@ public sealed class AppPaths
 
     public string AuthRoot { get; }
 
+    public string LauncherLogsRoot => Path.Combine(DataRoot, "logs");
+
+    public string LauncherLatestLogPath => Path.Combine(LauncherLogsRoot, "latest.log");
+
+    public string LauncherCrashLogsRoot => Path.Combine(LauncherLogsRoot, "crashes");
+
     public string MsalTokenCachePath => Path.Combine(AuthRoot, "msal.cache");
 
     public string OnlineAccountProfilePath => Path.Combine(AuthRoot, "online-account.json");

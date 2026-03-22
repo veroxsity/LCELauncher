@@ -1467,7 +1467,10 @@ public sealed partial class MainForm
 
         if (appended > 0)
         {
-            RenderVisibleLogs();
+            if (string.Equals(_currentPageKey, PageLogs, StringComparison.Ordinal))
+            {
+                RenderVisibleLogs();
+            }
         }
 
         if (_pendingLogLines.IsEmpty)
@@ -1495,6 +1498,11 @@ public sealed partial class MainForm
 
     private void RenderVisibleLogs()
     {
+        if (IsDisposed || !string.Equals(_currentPageKey, PageLogs, StringComparison.Ordinal))
+        {
+            return;
+        }
+
         _logsTextBox.Lines = _visibleLogLines.ToArray();
         _logsTextBox.SelectionStart = _logsTextBox.TextLength;
         _logsTextBox.ScrollToCaret();
@@ -1502,6 +1510,7 @@ public sealed partial class MainForm
 
     private void ShowPage(string pageKey)
     {
+        _currentPageKey = pageKey;
         foreach (var pair in _pages)
         {
             pair.Value.Visible = pair.Key == pageKey;
@@ -1527,6 +1536,11 @@ public sealed partial class MainForm
             button.ForeColor = selected ? TextPrimary : TextMuted;
             button.Tag = selected;
             button.Invalidate();
+        }
+
+        if (string.Equals(pageKey, PageLogs, StringComparison.Ordinal))
+        {
+            RenderVisibleLogs();
         }
     }
 
