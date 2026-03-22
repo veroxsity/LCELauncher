@@ -4,7 +4,7 @@ namespace LceLauncher.Services;
 
 public static class BridgeConfigRenderer
 {
-    public static string Render(ServerEntry server, BridgeAuthContext? authContext = null)
+    public static string Render(ServerEntry server, LauncherConfig launcherConfig, BridgeAuthContext? authContext = null)
     {
         if (server.Type != ServerType.JavaBridge || server.LocalBridgePort is null)
         {
@@ -12,6 +12,8 @@ public static class BridgeConfigRenderer
         }
 
         var authType = authContext is null ? "offline" : "online";
+        var logLevel = NormalizeLogLevel(launcherConfig.ManagedBridgeLogLevel);
+        var logPackets = launcherConfig.ManagedBridgeLogPackets ? "true" : "false";
         var onlineFields = authContext is null
             ? string.Empty
             : $"""
@@ -62,8 +64,8 @@ performance:
   forward-chat: true
 
 logging:
-  level: info
-  log-packets: false
+  level: {{logLevel}}
+  log-packets: {{logPackets}}
   log-translation-failures: true
   packet-dump-enabled: false
   packet-dump-directory: dumps/
@@ -75,6 +77,14 @@ advanced:
   connection-timeout: 1200
   debug-scoreboard: false
 """;
+    }
+
+    private static string NormalizeLogLevel(string? value)
+    {
+        var normalized = value?.Trim().ToLowerInvariant();
+        return normalized is "trace" or "debug" or "info" or "warn" or "error"
+            ? normalized
+            : "info";
     }
 
     private static string Escape(string value) => value.Replace("\"", "\\\"");

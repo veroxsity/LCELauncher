@@ -33,6 +33,8 @@ public sealed class AppPaths
 
     public string ManagedBridgeInstallRoot => Path.Combine(DataRoot, "bridge");
 
+    public string ManagedBridgeLogsRoot => Path.Combine(ManagedBridgeInstallRoot, "logs");
+
     public string ManagedBridgeJarPath => Path.Combine(ManagedBridgeInstallRoot, "bootstrap-standalone.jar");
 
     public string ManagedBridgeMetadataPath => Path.Combine(ManagedBridgeInstallRoot, "release.json");

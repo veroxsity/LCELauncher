@@ -391,6 +391,8 @@ public sealed partial class MainForm
         _microsoftAuthClientIdTextBox.Text = _config.MicrosoftAuthClientId ?? _launcherAuthService.GetEffectiveClientId();
         _checkForManagedBridgeUpdatesOnStartupCheckBox.Checked = _config.CheckForManagedBridgeUpdatesOnStartup;
         _notifyWhenManagedBridgeUpdateAvailableCheckBox.Checked = _config.NotifyWhenManagedBridgeUpdateAvailable;
+        _managedBridgeLogLevelComboBox.SelectedItem = NormalizeManagedBridgeLogLevel(_config.ManagedBridgeLogLevel);
+        _managedBridgeLogPacketsCheckBox.Checked = _config.ManagedBridgeLogPackets;
         _checkForManagedClientUpdatesOnStartupCheckBox.Checked = _config.CheckForManagedClientUpdatesOnStartup;
         _notifyWhenManagedClientUpdateAvailableCheckBox.Checked = _config.NotifyWhenManagedClientUpdateAvailable;
         _managedClientInstallStreamComboBox.SelectedItem = FindManagedClientStreamSelectionItem(_config.ManagedClientInstallStream);
@@ -442,6 +444,8 @@ public sealed partial class MainForm
             : _microsoftAuthClientIdTextBox.Text.Trim();
         _config.CheckForManagedBridgeUpdatesOnStartup = _checkForManagedBridgeUpdatesOnStartupCheckBox.Checked;
         _config.NotifyWhenManagedBridgeUpdateAvailable = _notifyWhenManagedBridgeUpdateAvailableCheckBox.Checked;
+        _config.ManagedBridgeLogLevel = NormalizeManagedBridgeLogLevel(_managedBridgeLogLevelComboBox.SelectedItem as string);
+        _config.ManagedBridgeLogPackets = _managedBridgeLogPacketsCheckBox.Checked;
         _config.SelectedServerId = (_selectedServerComboBox.SelectedItem as ServerSelectionItem)?.ServerId ?? _config.SelectedServerId;
         _config.CheckForManagedClientUpdatesOnStartup = _checkForManagedClientUpdatesOnStartupCheckBox.Checked;
         _config.NotifyWhenManagedClientUpdateAvailable = _notifyWhenManagedClientUpdateAvailableCheckBox.Checked;
@@ -1396,6 +1400,44 @@ public sealed partial class MainForm
         foreach (var line in _logger.Snapshot()) AppendLog(line);
     }
 
+    private void ClearBridgeLogs()
+    {
+        var latestLogPath = Path.Combine(_appPaths.ManagedBridgeLogsRoot, "latest.log");
+        var result = MessageBox.Show(
+            this,
+            "Clear the visible launcher log and delete the managed bridge latest.log file?",
+            "Clear Logs",
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Question);
+
+        if (result != DialogResult.Yes)
+        {
+            return;
+        }
+
+        try
+        {
+            Directory.CreateDirectory(_appPaths.ManagedBridgeLogsRoot);
+            if (File.Exists(latestLogPath))
+            {
+                File.Delete(latestLogPath);
+                _logger.Info($"Deleted managed bridge log file at {latestLogPath}");
+            }
+            else
+            {
+                _logger.Info("Managed bridge latest.log did not exist.");
+            }
+
+            _logsTextBox.Clear();
+            AppendExistingLogs();
+        }
+        catch (Exception ex)
+        {
+            _logger.Error($"Failed to clear bridge logs: {ex.Message}");
+            MessageBox.Show(this, ex.Message, "Clear Logs Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
     private void AppendLog(string line)
     {
         if (_logsTextBox.TextLength > 0) _logsTextBox.AppendText(Environment.NewLine);
@@ -1455,6 +1497,14 @@ public sealed partial class MainForm
     }
 
     private static string? NullIfWhitespace(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static string NormalizeManagedBridgeLogLevel(string? value)
+    {
+        var normalized = value?.Trim().ToLowerInvariant();
+        return normalized is "trace" or "debug" or "info" or "warn" or "error"
+            ? normalized
+            : "info";
+    }
 
     private sealed record ServerSelectionItem(string? ServerId, string Label)
     {

@@ -55,7 +55,7 @@ public sealed class BridgeRuntimeManager
         Directory.CreateDirectory(runtimeDirectory);
 
         var configPath = Path.Combine(runtimeDirectory, "config.yml");
-        File.WriteAllText(configPath, BridgeConfigRenderer.Render(server, authContext));
+        File.WriteAllText(configPath, BridgeConfigRenderer.Render(server, config, authContext));
 
         var startInfo = new ProcessStartInfo
         {

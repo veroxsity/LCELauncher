@@ -94,6 +94,8 @@ public sealed partial class MainForm : Form
     private readonly Button _openManagedInstallButton;
     private readonly CheckBox _checkForManagedBridgeUpdatesOnStartupCheckBox;
     private readonly CheckBox _notifyWhenManagedBridgeUpdateAvailableCheckBox;
+    private readonly ComboBox _managedBridgeLogLevelComboBox;
+    private readonly CheckBox _managedBridgeLogPacketsCheckBox;
 
     private readonly TextBox _logsTextBox;
 
@@ -203,6 +205,9 @@ public sealed partial class MainForm : Form
         _openManagedInstallButton = CreateSecondaryButton("OPEN INSTALL FOLDER");
         _checkForManagedBridgeUpdatesOnStartupCheckBox = CreateCheckBox("Check bridge updates when the launcher starts");
         _notifyWhenManagedBridgeUpdateAvailableCheckBox = CreateCheckBox("Notify me when a newer managed bridge release is available");
+        _managedBridgeLogLevelComboBox = CreateComboBox();
+        _managedBridgeLogLevelComboBox.Items.AddRange(["trace", "debug", "info", "warn", "error"]);
+        _managedBridgeLogPacketsCheckBox = CreateCheckBox("Write per-packet bridge diagnostics to the managed bridge log");
 
         _managedClientInstallStreamComboBox.Items.AddRange(
             Enum.GetValues<ManagedClientStream>()

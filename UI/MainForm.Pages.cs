@@ -300,6 +300,8 @@ public sealed partial class MainForm
             BuildFormRow("Install Details", _managedBridgeDetailsLabel),
             BuildFormRow("Update Status", _managedBridgeUpdateLabel),
             BuildFormRow("Last Checked", _managedBridgeLastCheckedLabel),
+            BuildFormRow("Log Level", _managedBridgeLogLevelComboBox),
+            BuildFormRow("Packet Logging", _managedBridgeLogPacketsCheckBox),
             BuildFormRow("Check On Startup", _checkForManagedBridgeUpdatesOnStartupCheckBox),
             BuildFormRow("Notify On Update", _notifyWhenManagedBridgeUpdateAvailableCheckBox),
             actions,
@@ -383,6 +385,14 @@ public sealed partial class MainForm
         var openDataButton = CreateSecondaryButton("OPEN DATA");
         openDataButton.Click += (_, _) => OpenDirectorySafely(_appPaths.DataRoot);
         toolbar.Controls.Add(openDataButton);
+
+        var openLogsButton = CreateSecondaryButton("OPEN LOGS FOLDER");
+        openLogsButton.Click += (_, _) => OpenDirectorySafely(_appPaths.ManagedBridgeLogsRoot);
+        toolbar.Controls.Add(openLogsButton);
+
+        var clearLogsButton = CreateSecondaryButton("CLEAR LOGS");
+        clearLogsButton.Click += (_, _) => ClearBridgeLogs();
+        toolbar.Controls.Add(clearLogsButton);
 
         card.Controls.Add(_logsTextBox);
         card.Controls.Add(toolbar);

@@ -54,6 +54,12 @@ public sealed class LauncherConfigService
 
     private void ApplyDiscoveredDefaults(LauncherConfig config)
     {
+        if (string.IsNullOrWhiteSpace(config.ManagedBridgeLogLevel))
+        {
+            config.ManagedBridgeLogLevel = "info";
+            _logger.Info("Defaulted managed bridge log level to info.");
+        }
+
         if (string.IsNullOrWhiteSpace(config.MicrosoftAuthClientId))
         {
             config.MicrosoftAuthClientId = LauncherAuthService.DefaultCompatibilityClientId;

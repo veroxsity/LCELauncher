@@ -18,6 +18,10 @@ public sealed class LauncherConfig
 
     public bool NotifyWhenManagedBridgeUpdateAvailable { get; set; } = true;
 
+    public string ManagedBridgeLogLevel { get; set; } = "info";
+
+    public bool ManagedBridgeLogPackets { get; set; } = false;
+
     public string? ClientExecutablePath { get; set; }
 
     public string? BridgeJarPath { get; set; }
