@@ -1,4 +1,6 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Threading;
 using LceLauncher.Models;
 using LceLauncher.Services;
 
@@ -14,6 +16,8 @@ public sealed partial class MainForm : Form
     private const int PageMinContentWidth = 820;
     private const int PageHeaderMaxWidth = 1200;
     private const int HeroStackBreakpoint = 1100;
+    private const int MaxVisibleLogLines = 1000;
+    private const int LogFlushBatchSize = 250;
     private const string PageHome = "home";
     private const string PageServers = "servers";
     private const string PageSettings = "settings";
@@ -98,6 +102,10 @@ public sealed partial class MainForm : Form
     private readonly CheckBox _managedBridgeLogPacketsCheckBox;
 
     private readonly TextBox _logsTextBox;
+    private readonly ConcurrentQueue<string> _pendingLogLines = new();
+    private readonly Queue<string> _visibleLogLines = [];
+    private readonly System.Windows.Forms.Timer _logFlushTimer;
+    private int _logFlushScheduled;
 
     private readonly Dictionary<string, Control> _pages = new();
     private readonly List<(string Key, Button Button)> _pageButtons = [];
@@ -221,6 +229,8 @@ public sealed partial class MainForm : Form
                 .ToArray());
 
         _logsTextBox = CreateLogsTextBox();
+        _logFlushTimer = new System.Windows.Forms.Timer { Interval = 100 };
+        _logFlushTimer.Tick += (_, _) => FlushPendingLogs();
 
         _heroProfileLabel = CreateBodyLabel(string.Empty);
         _heroServerLabel = CreateBodyLabel(string.Empty);

@@ -336,13 +336,19 @@ public sealed partial class MainForm
                 return;
             }
 
-            if (InvokeRequired)
+            _pendingLogLines.Enqueue(line);
+            if (Interlocked.Exchange(ref _logFlushScheduled, 1) != 0)
             {
-                BeginInvoke(new Action(() => AppendLog(line)));
+                return;
+            }
+
+            if (IsHandleCreated)
+            {
+                BeginInvoke(new Action(EnsureLogFlushTimerRunning));
             }
             else
             {
-                AppendLog(line);
+                EnsureLogFlushTimerRunning();
             }
         };
 
@@ -1397,7 +1403,12 @@ public sealed partial class MainForm
 
     private void AppendExistingLogs()
     {
-        foreach (var line in _logger.Snapshot()) AppendLog(line);
+        _visibleLogLines.Clear();
+        foreach (var line in _logger.Snapshot())
+        {
+            EnqueueVisibleLogLine(line);
+        }
+        RenderVisibleLogs();
     }
 
     private void ClearBridgeLogs()
@@ -1421,15 +1432,14 @@ public sealed partial class MainForm
             if (File.Exists(latestLogPath))
             {
                 File.Delete(latestLogPath);
-                _logger.Info($"Deleted managed bridge log file at {latestLogPath}");
-            }
-            else
-            {
-                _logger.Info("Managed bridge latest.log did not exist.");
             }
 
+            _logger.Clear();
+            while (_pendingLogLines.TryDequeue(out _))
+            {
+            }
+            _visibleLogLines.Clear();
             _logsTextBox.Clear();
-            AppendExistingLogs();
         }
         catch (Exception ex)
         {
@@ -1438,10 +1448,54 @@ public sealed partial class MainForm
         }
     }
 
-    private void AppendLog(string line)
+    private void EnsureLogFlushTimerRunning()
     {
-        if (_logsTextBox.TextLength > 0) _logsTextBox.AppendText(Environment.NewLine);
-        _logsTextBox.AppendText(line);
+        if (!_logFlushTimer.Enabled)
+        {
+            _logFlushTimer.Start();
+        }
+    }
+
+    private void FlushPendingLogs()
+    {
+        var appended = 0;
+        while (appended < LogFlushBatchSize && _pendingLogLines.TryDequeue(out var line))
+        {
+            EnqueueVisibleLogLine(line);
+            appended++;
+        }
+
+        if (appended > 0)
+        {
+            RenderVisibleLogs();
+        }
+
+        if (_pendingLogLines.IsEmpty)
+        {
+            Interlocked.Exchange(ref _logFlushScheduled, 0);
+            if (_pendingLogLines.IsEmpty)
+            {
+                _logFlushTimer.Stop();
+            }
+            else
+            {
+                EnsureLogFlushTimerRunning();
+            }
+        }
+    }
+
+    private void EnqueueVisibleLogLine(string line)
+    {
+        _visibleLogLines.Enqueue(line);
+        while (_visibleLogLines.Count > MaxVisibleLogLines)
+        {
+            _visibleLogLines.Dequeue();
+        }
+    }
+
+    private void RenderVisibleLogs()
+    {
+        _logsTextBox.Lines = _visibleLogLines.ToArray();
         _logsTextBox.SelectionStart = _logsTextBox.TextLength;
         _logsTextBox.ScrollToCaret();
     }

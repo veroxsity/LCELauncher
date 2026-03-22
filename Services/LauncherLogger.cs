@@ -10,6 +10,13 @@ public sealed class LauncherLogger
 
     public IReadOnlyCollection<string> Snapshot() => _lines.ToArray();
 
+    public void Clear()
+    {
+        while (_lines.TryDequeue(out _))
+        {
+        }
+    }
+
     public void Info(string message) => Write("INFO", message);
 
     public void Error(string message) => Write("ERROR", message);
