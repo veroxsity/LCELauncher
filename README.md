@@ -104,3 +104,4 @@ That includes launcher config, managed downloads and installs, runtime bridge da
 - Client: `https://github.com/veroxsity/LCEClient`
 - Debug: `https://github.com/veroxsity/LCEDebug`
 - Server: `https://github.com/veroxsity/LCEServer`
+- Save converter: `https://github.com/veroxsity/LCE-Save-Converter`
