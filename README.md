@@ -9,7 +9,7 @@
 A cross-platform desktop launcher for **Minecraft Legacy Console Edition**, built as part of the [LCE dedicated server project](https://github.com/veroxsity/MinecraftLCE). It handles everything you need to get in-game — authentication, client installs, bridge runtime management, and server connections — wrapped in a clean interface inspired by the official Minecraft Java launcher.
 
 <p align="center">
-  <img src="assets/screenshot.png" alt="LCE Launcher screenshot" width="780" />
+  <img src="LceLauncher/Assets/screenshot.png" alt="LCE Launcher screenshot" width="780" />
 </p>
 
 ---
