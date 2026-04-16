@@ -6,7 +6,7 @@
 ![License](https://img.shields.io/github/license/veroxsity/LCELauncher?style=flat-square)
 ![Last Commit](https://img.shields.io/github/last-commit/veroxsity/LCELauncher?style=flat-square)
 
-A cross-platform desktop launcher for **Minecraft Legacy Console Edition**, built as part of the [LCE dedicated server project](https://github.com/veroxsity/MinecraftLCE). It handles everything you need to get in-game — authentication, client installs, bridge runtime management, and server connections — wrapped in a clean interface inspired by the official Minecraft Java launcher.
+A cross-platform desktop launcher for **Minecraft Legacy Console Edition**, built as part of the [LCE dedicated server project](https://github.com/veroxsity/MinecraftLCE). Sign in, install the client, and play.
 
 <p align="center">
   <img src="LceLauncher/Assets/screenshot.png" alt="LCE Launcher screenshot" width="780" />
@@ -16,12 +16,12 @@ A cross-platform desktop launcher for **Minecraft Legacy Console Edition**, buil
 
 ## Features
 
-- **Microsoft account sign-in** — authenticates via Xbox Live / XSTS, syncs your gamertag and profile picture automatically
-- **Managed installs** — downloads and updates the LCE client and LCEBridge runtime with one click; no manual file management
-- **Stream selection** — choose between Release Nightly and Debug Nightly builds independently for the client and bridge
-- **Server launcher** — pick a server from your list and connect automatically on launch
-- **Cross-platform** — runs natively on Windows, macOS, and Linux via Avalonia UI
-- **Offline / local mode** — play without a Microsoft account using a local username
+- **Microsoft account sign-in**: authenticates via Xbox Live / XSTS, syncs your gamertag and profile picture automatically
+- **Managed installs**: downloads and updates the LCE client and LCEBridge runtime with one click, no manual file management
+- **Stream selection**: choose between Release Nightly and Debug Nightly builds independently for the client and bridge
+- **Server launcher**: pick a server from your list and connect automatically on launch
+- **Cross-platform**: runs natively on Windows, macOS, and Linux via Avalonia UI
+- **Offline / local mode**: play without a Microsoft account using a local username
 
 ---
 
@@ -53,10 +53,10 @@ dotnet run --project LceLauncher
 
 ## Usage
 
-1. **Sign in** — go to Settings → Account and sign in with Microsoft, or enter a local username for offline play.
-2. **Install the client** — go to the Downloads tab and install the Release Nightly client build.
-3. **Install the bridge** — install the LCEBridge runtime from the same Downloads tab (requires Java 17+).
-4. **Play** — select a server if desired and hit **PLAY**.
+1. **Sign in**: go to Settings > Account and sign in with Microsoft, or enter a local username for offline play.
+2. **Install the client**: go to the Downloads tab and install the Release Nightly client build.
+3. **Install the bridge**: install the LCEBridge runtime from the same Downloads tab (requires Java 17+).
+4. **Play**: select a server if desired and hit **PLAY**.
 
 ---
 
@@ -86,7 +86,7 @@ LceLauncher/
 
 ## Contributing
 
-Pull requests are welcome. For significant changes, please open an issue first to discuss what you'd like to change.
+Pull requests are welcome. For bigger changes please open an issue first to discuss it.
 
 ---
 
