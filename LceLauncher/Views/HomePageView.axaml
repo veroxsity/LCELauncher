@@ -1,0 +1,60 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:LceLauncher.ViewModels"
+             x:Class="LceLauncher.Views.HomePageView"
+             x:DataType="vm:HomePageViewModel"
+             Background="{StaticResource ContentBg}">
+
+  <Grid RowDefinitions="*,Auto">
+
+    <!-- ── Hero banner (art fills top ~60%) ──────────────── -->
+    <Grid Grid.Row="0" ClipToBounds="True">
+      <Image Source="/Assets/card-bundle.png"
+             Stretch="UniformToFill"
+             HorizontalAlignment="Center"
+             VerticalAlignment="Top" />
+
+      <!-- Gradient fade: transparent top → solid ContentBg at bottom -->
+      <Border>
+        <Border.Background>
+          <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Color="#00141619" Offset="0.3" />
+            <GradientStop Color="#CC141619" Offset="0.75" />
+            <GradientStop Color="#FF141619" Offset="1" />
+          </LinearGradientBrush>
+        </Border.Background>
+      </Border>
+
+      <!-- Logo centred in top half -->
+      <Image Source="/Assets/logo.png"
+             Stretch="Uniform"
+             MaxWidth="420"
+             MaxHeight="110"
+             HorizontalAlignment="Center"
+             VerticalAlignment="Center"
+             Margin="0,0,0,60" />
+    </Grid>
+
+    <!-- ── Description card at bottom ────────────────────── -->
+    <StackPanel Grid.Row="1"
+                Spacing="10"
+                Margin="40,0,40,36">
+
+      <TextBlock Text="{Binding WelcomeTitle}"
+                 FontSize="20"
+                 FontWeight="Bold"
+                 Foreground="{StaticResource TextPrimary}"
+                 HorizontalAlignment="Center"
+                 TextAlignment="Center" />
+
+      <TextBlock Text="{Binding Description}"
+                 FontSize="12"
+                 Foreground="{StaticResource TextSecondary}"
+                 TextWrapping="Wrap"
+                 TextAlignment="Center"
+                 HorizontalAlignment="Center"
+                 MaxWidth="480"
+                 LineHeight="18" />
+    </StackPanel>
+  </Grid>
+</UserControl>

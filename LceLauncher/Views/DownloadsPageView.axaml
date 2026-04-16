@@ -1,0 +1,194 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:LceLauncher.ViewModels"
+             x:Class="LceLauncher.Views.DownloadsPageView"
+             x:DataType="vm:DownloadsPageViewModel"
+             Background="{StaticResource ContentBg}">
+
+  <ScrollViewer Padding="28">
+    <StackPanel Spacing="16" MaxWidth="700">
+
+      <!-- ── Release Nightly ─────────────────────────────── -->
+      <Border Background="{StaticResource CardBg}"
+              BorderBrush="#484848"
+              BorderThickness="1"
+              Padding="20">
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto">
+
+          <!-- Header row -->
+          <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,6">
+            <StackPanel Grid.Column="0">
+              <TextBlock Text="Release Nightly"
+                         FontSize="15"
+                         FontWeight="SemiBold"
+                         Foreground="{StaticResource TextPrimary}" />
+              <TextBlock Text="Stable build for general play"
+                         FontSize="11"
+                         Foreground="{StaticResource TextSecondary}"
+                         Margin="0,2,0,0" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Top">
+              <Button Content="Check"
+                      Theme="{StaticResource GhostButtonTheme}"
+                      Command="{Binding CheckReleaseCommand}"
+                      IsEnabled="{Binding !ReleaseWorking}" />
+              <Button Content="Install"
+                      Theme="{StaticResource AccentButtonTheme}"
+                      Command="{Binding InstallReleaseCommand}"
+                      IsVisible="{Binding !ReleaseInstalled}" />
+              <Button Content="Update"
+                      Theme="{StaticResource AccentButtonTheme}"
+                      Command="{Binding UpdateReleaseCommand}"
+                      IsVisible="{Binding ReleaseInstalled}" />
+            </StackPanel>
+          </Grid>
+
+          <!-- Version info -->
+          <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="16" Margin="0,0,0,8">
+            <TextBlock Text="{Binding ReleaseVersion}"
+                       FontSize="13"
+                       Foreground="{StaticResource AccentBrush}"
+                       FontWeight="SemiBold" />
+            <TextBlock Text="{Binding ReleaseStatus}"
+                       FontSize="12"
+                       Foreground="{StaticResource TextSecondary}"
+                       VerticalAlignment="Center" />
+          </StackPanel>
+
+          <!-- Progress bar -->
+          <ProgressBar Grid.Row="2"
+                       Value="{Binding ReleaseProgress}"
+                       Minimum="0" Maximum="100"
+                       Height="4"
+                       CornerRadius="2"
+                       IsVisible="{Binding ReleaseProgressVisible}"
+                       Foreground="{StaticResource AccentBrush}"
+                       Background="{StaticResource Separator}"
+                       Margin="0,0,0,4" />
+        </Grid>
+      </Border>
+
+      <!-- ── Debug Nightly ───────────────────────────────── -->
+      <Border Background="{StaticResource CardBg}"
+              BorderBrush="#484848"
+              BorderThickness="1"
+              Padding="20">
+        <Grid RowDefinitions="Auto,Auto,Auto">
+
+          <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,6">
+            <StackPanel Grid.Column="0">
+              <TextBlock Text="Debug Nightly"
+                         FontSize="15"
+                         FontWeight="SemiBold"
+                         Foreground="{StaticResource TextPrimary}" />
+              <TextBlock Text="Build with extra logging for development"
+                         FontSize="11"
+                         Foreground="{StaticResource TextSecondary}"
+                         Margin="0,2,0,0" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Top">
+              <Button Content="Check"
+                      Theme="{StaticResource GhostButtonTheme}"
+                      Command="{Binding CheckDebugCommand}"
+                      IsEnabled="{Binding !DebugWorking}" />
+              <Button Content="Install"
+                      Theme="{StaticResource AccentButtonTheme}"
+                      Command="{Binding InstallDebugCommand}"
+                      IsVisible="{Binding !DebugInstalled}" />
+              <Button Content="Update"
+                      Theme="{StaticResource AccentButtonTheme}"
+                      Command="{Binding UpdateDebugCommand}"
+                      IsVisible="{Binding DebugInstalled}" />
+            </StackPanel>
+          </Grid>
+
+          <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="16" Margin="0,0,0,8">
+            <TextBlock Text="{Binding DebugVersion}"
+                       FontSize="13"
+                       Foreground="{StaticResource AccentBrush}"
+                       FontWeight="SemiBold" />
+            <TextBlock Text="{Binding DebugStatus}"
+                       FontSize="12"
+                       Foreground="{StaticResource TextSecondary}"
+                       VerticalAlignment="Center" />
+          </StackPanel>
+
+          <ProgressBar Grid.Row="2"
+                       Value="{Binding DebugProgress}"
+                       Minimum="0" Maximum="100"
+                       Height="4"
+                       CornerRadius="2"
+                       IsVisible="{Binding DebugProgressVisible}"
+                       Foreground="{StaticResource AccentBrush}"
+                       Background="{StaticResource Separator}"
+                       Margin="0,0,0,4" />
+        </Grid>
+      </Border>
+
+      <!-- ── Bridge Runtime ──────────────────────────────── -->
+      <Border Background="{StaticResource CardBg}"
+              BorderBrush="#484848"
+              BorderThickness="1"
+              Padding="20">
+        <Grid RowDefinitions="Auto,Auto,Auto">
+
+          <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,6">
+            <StackPanel Grid.Column="0">
+              <TextBlock Text="Bridge Runtime"
+                         FontSize="15"
+                         FontWeight="SemiBold"
+                         Foreground="{StaticResource TextPrimary}" />
+              <TextBlock Text="Java-to-LCE protocol bridge (LCEBridge)"
+                         FontSize="11"
+                         Foreground="{StaticResource TextSecondary}"
+                         Margin="0,2,0,0" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Top">
+              <Button Content="Install"
+                      Theme="{StaticResource AccentButtonTheme}"
+                      Command="{Binding InstallBridgeCommand}"
+                      IsVisible="{Binding !BridgeInstalled}" />
+              <Button Content="Update"
+                      Theme="{StaticResource AccentButtonTheme}"
+                      Command="{Binding UpdateBridgeCommand}"
+                      IsVisible="{Binding BridgeInstalled}" />
+            </StackPanel>
+          </Grid>
+
+          <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="16" Margin="0,0,0,8">
+            <TextBlock Text="{Binding BridgeVersion}"
+                       FontSize="13"
+                       Foreground="{StaticResource AccentBrush}"
+                       FontWeight="SemiBold" />
+            <TextBlock Text="{Binding BridgeStatus}"
+                       FontSize="12"
+                       Foreground="{StaticResource TextSecondary}"
+                       VerticalAlignment="Center" />
+          </StackPanel>
+
+          <ProgressBar Grid.Row="2"
+                       Value="{Binding BridgeProgress}"
+                       Minimum="0" Maximum="100"
+                       Height="4"
+                       CornerRadius="2"
+                       IsVisible="{Binding BridgeProgressVisible}"
+                       Foreground="{StaticResource AccentBrush}"
+                       Background="{StaticResource Separator}"
+                       Margin="0,0,0,4" />
+        </Grid>
+      </Border>
+
+      <!-- Note about Java -->
+      <Border Background="Transparent"
+              BorderBrush="{StaticResource Separator}"
+              BorderThickness="0,0,0,0"
+              Padding="4,0">
+        <TextBlock Text="⚠  The Bridge Runtime requires Java 17 or newer to be installed on your system."
+                   FontSize="11"
+                   Foreground="{StaticResource TextSecondary}"
+                   TextWrapping="Wrap" />
+      </Border>
+
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

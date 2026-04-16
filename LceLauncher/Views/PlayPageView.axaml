@@ -1,0 +1,126 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:LceLauncher.ViewModels"
+             x:Class="LceLauncher.Views.PlayPageView"
+             x:DataType="vm:PlayPageViewModel"
+             Background="{StaticResource ContentBg}">
+
+  <Grid RowDefinitions="*,Auto">
+
+    <!-- ── Hero area ─────────────────────────────────────── -->
+    <Grid Grid.Row="0" ClipToBounds="True">
+
+      <!-- Background: hero artwork fills the space -->
+      <Image Source="/Assets/hero.png"
+             Stretch="UniformToFill"
+             HorizontalAlignment="Center"
+             VerticalAlignment="Center" />
+
+      <!-- Dark gradient overlay so text is readable -->
+      <Border>
+        <Border.Background>
+          <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Color="#80000000" Offset="0" />
+            <GradientStop Color="#30000000" Offset="0.4" />
+            <GradientStop Color="#CC000000" Offset="1" />
+          </LinearGradientBrush>
+        </Border.Background>
+      </Border>
+
+      <!-- LCE logo image centred in hero -->
+      <Image Source="/Assets/logo.png"
+             Stretch="Uniform"
+             MaxWidth="520"
+             MaxHeight="140"
+             HorizontalAlignment="Center"
+             VerticalAlignment="Center"
+             Margin="40" />
+
+      <!-- Error banner pinned to bottom -->
+      <Border VerticalAlignment="Bottom"
+              HorizontalAlignment="Stretch"
+              Padding="16,10"
+              IsVisible="{Binding HasError}"
+              Background="#CC3d1a1a">
+        <TextBlock Text="{Binding StatusMessage}"
+                   Foreground="#ff6b6b"
+                   FontSize="12"
+                   TextWrapping="Wrap" />
+      </Border>
+    </Grid>
+
+    <!-- ── Bottom action bar (Java launcher style) ────────── -->
+    <!-- Outer bevel: dark shadow line on very top -->
+    <Border Grid.Row="1"
+            BorderBrush="#181818"
+            BorderThickness="0,2,0,0">
+      <!-- Inner bevel: lighter highlight line just inside the shadow -->
+      <Border Background="{StaticResource SidebarBg}"
+              Height="74"
+              BorderBrush="#3e3e3e"
+              BorderThickness="0,1,0,0">
+      <Grid ColumnDefinitions="*,Auto,*" Margin="20,0">
+
+        <!-- Left: server selector -->
+        <StackPanel Grid.Column="0"
+                    VerticalAlignment="Center"
+                    Spacing="3">
+          <ComboBox ItemsSource="{Binding Servers}"
+                    SelectedItem="{Binding SelectedServer}"
+                    MinWidth="200"
+                    MaxWidth="300"
+                    Background="{StaticResource InputBg}"
+                    Foreground="{StaticResource TextPrimary}"
+                    BorderBrush="{StaticResource Separator}"
+                    PlaceholderText="No server selected"
+                    HorizontalAlignment="Left">
+            <ComboBox.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding DisplayName}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <TextBlock Text="Connect to server on launch"
+                     FontSize="10"
+                     Foreground="{StaticResource TextDim}" />
+        </StackPanel>
+
+        <!-- Center: PLAY button + status -->
+        <StackPanel Grid.Column="1"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Center"
+                    Spacing="4">
+          <Button Content="PLAY"
+                  Theme="{StaticResource PlayButtonTheme}"
+                  MinWidth="200"
+                  Command="{Binding PlayCommand}"
+                  IsEnabled="{Binding !IsLaunching}" />
+          <TextBlock Text="{Binding StatusMessage}"
+                     FontSize="10"
+                     Foreground="{StaticResource TextSecondary}"
+                     HorizontalAlignment="Center"
+                     IsVisible="{Binding StatusMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        </StackPanel>
+
+        <!-- Right: username + copy -->
+        <StackPanel Grid.Column="2"
+                    Orientation="Horizontal"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Right"
+                    Spacing="8">
+          <TextBlock Text="{Binding DisplayUsername}"
+                     Foreground="{StaticResource TextSecondary}"
+                     FontSize="12"
+                     VerticalAlignment="Center" />
+          <Button Content="⎘"
+                  Theme="{StaticResource GhostButtonTheme}"
+                  ToolTip.Tip="Copy username"
+                  Command="{Binding CopyUsernameCommand}"
+                  Padding="8,4"
+                  FontSize="14" />
+        </StackPanel>
+      </Grid>
+      </Border>
+    </Border>
+  </Grid>
+</UserControl>

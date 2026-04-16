@@ -1,0 +1,293 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:LceLauncher.ViewModels"
+             x:Class="LceLauncher.Views.SettingsPageView"
+             x:DataType="vm:SettingsPageViewModel"
+             Background="{StaticResource ContentBg}">
+
+  <Grid RowDefinitions="*,Auto">
+    <ScrollViewer Grid.Row="0" Padding="28">
+      <StackPanel Spacing="20" MaxWidth="700">
+
+        <!-- ── Account ──────────────────────────────────── -->
+        <StackPanel Spacing="12">
+          <TextBlock Text="Account"
+                     FontSize="14"
+                     FontWeight="Bold"
+                     Foreground="{StaticResource TextPrimary}" />
+          <Border Background="{StaticResource CardBg}"
+                  BorderBrush="#484848"
+                  BorderThickness="1"
+                  Padding="18">
+            <StackPanel Spacing="14">
+
+              <!-- Auth mode -->
+              <StackPanel Spacing="6">
+                <TextBlock Text="Authentication Mode"
+                           FontSize="12" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextSecondary}" />
+                <StackPanel Orientation="Horizontal" Spacing="20">
+                  <RadioButton Content="Local (username only)"
+                               IsChecked="{Binding !IsOnlineAuth}"
+                               Foreground="{StaticResource TextPrimary}" />
+                  <RadioButton Content="Microsoft (online)"
+                               IsChecked="{Binding IsOnlineAuth}"
+                               Foreground="{StaticResource TextPrimary}" />
+                </StackPanel>
+              </StackPanel>
+
+              <!-- Local username -->
+              <StackPanel Spacing="6">
+                <TextBlock Text="Username"
+                           FontSize="12" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextSecondary}" />
+                <TextBox Text="{Binding LocalUsername}"
+                         Background="{StaticResource InputBg}"
+                         Foreground="{StaticResource TextPrimary}"
+                         BorderBrush="{StaticResource Separator}"
+                         CaretBrush="{StaticResource AccentBrush}"
+                         MaxWidth="260"
+                         HorizontalAlignment="Left" />
+              </StackPanel>
+
+              <!-- Microsoft sign-in -->
+              <StackPanel IsVisible="{Binding IsOnlineAuth}" Spacing="10">
+                <Rectangle Height="1" Fill="{StaticResource Separator}" />
+                <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsSignedIn}">
+                  <TextBlock Grid.Column="0"
+                             Text="{Binding SignedInUsername, StringFormat='Signed in as {0}'}"
+                             FontSize="12"
+                             Foreground="{StaticResource AccentBrush}"
+                             VerticalAlignment="Center" />
+                  <Button Grid.Column="1"
+                          Content="Sign Out"
+                          Theme="{StaticResource DangerButtonTheme}"
+                          Command="{Binding SignOutCommand}" />
+                </Grid>
+                <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding !IsSignedIn}">
+                  <TextBlock Grid.Column="0"
+                             Text="Not signed in"
+                             FontSize="12"
+                             Foreground="{StaticResource TextSecondary}"
+                             VerticalAlignment="Center" />
+                  <Button Grid.Column="1"
+                          Content="Sign In with Microsoft"
+                          Theme="{StaticResource AccentButtonTheme}"
+                          Command="{Binding SignInCommand}" />
+                </Grid>
+                <TextBlock Text="{Binding AuthStatus}"
+                           FontSize="11"
+                           Foreground="{StaticResource TextSecondary}"
+                           IsVisible="{Binding AuthStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                           TextWrapping="Wrap" />
+                <CheckBox Content="Sync username from online account"
+                          IsChecked="{Binding SyncUsernameFromOnline}"
+                          Foreground="{StaticResource TextSecondary}"
+                          FontSize="12" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <!-- ── Client ───────────────────────────────────── -->
+        <StackPanel Spacing="12">
+          <TextBlock Text="Client"
+                     FontSize="14" FontWeight="Bold"
+                     Foreground="{StaticResource TextPrimary}" />
+          <Border Background="{StaticResource CardBg}"
+                  BorderBrush="#484848"
+                  BorderThickness="1"
+                  Padding="18">
+            <StackPanel Spacing="14">
+
+              <CheckBox Content="Use managed client install (recommended)"
+                        IsChecked="{Binding PreferManagedClientInstall}"
+                        Foreground="{StaticResource TextPrimary}"
+                        FontSize="13" />
+
+              <StackPanel Spacing="6" IsVisible="{Binding PreferManagedClientInstall}">
+                <TextBlock Text="Preferred stream"
+                           FontSize="12" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextSecondary}" />
+                <StackPanel Orientation="Horizontal" Spacing="20">
+                  <RadioButton Content="Release Nightly"
+                               IsChecked="{Binding ClientIsRelease}"
+                               Foreground="{StaticResource TextPrimary}" />
+                  <RadioButton Content="Debug Nightly"
+                               IsChecked="{Binding ClientIsDebug}"
+                               Foreground="{StaticResource TextPrimary}" />
+                </StackPanel>
+              </StackPanel>
+
+              <StackPanel Spacing="6" IsVisible="{Binding !PreferManagedClientInstall}">
+                <TextBlock Text="Custom executable path"
+                           FontSize="12" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextSecondary}" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                  <TextBox Grid.Column="0"
+                           Text="{Binding ClientExecutablePath}"
+                           Background="{StaticResource InputBg}"
+                           Foreground="{StaticResource TextPrimary}"
+                           BorderBrush="{StaticResource Separator}"
+                           PlaceholderText="Path to Minecraft.Client.exe" />
+                  <Button Grid.Column="1"
+                          Content="Browse"
+                          Theme="{StaticResource GhostButtonTheme}"
+                          Command="{Binding BrowseClientExeCommand}" />
+                </Grid>
+              </StackPanel>
+
+              <StackPanel Spacing="6">
+                <TextBlock Text="Extra launch arguments"
+                           FontSize="12" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextSecondary}" />
+                <TextBox Text="{Binding LaunchArguments}"
+                         Background="{StaticResource InputBg}"
+                         Foreground="{StaticResource TextPrimary}"
+                         BorderBrush="{StaticResource Separator}"
+                         PlaceholderText="Optional" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <!-- ── Bridge ───────────────────────────────────── -->
+        <StackPanel Spacing="12">
+          <TextBlock Text="Bridge"
+                     FontSize="14" FontWeight="Bold"
+                     Foreground="{StaticResource TextPrimary}" />
+          <Border Background="{StaticResource CardBg}"
+                  BorderBrush="#484848"
+                  BorderThickness="1"
+                  Padding="18">
+            <StackPanel Spacing="14">
+
+              <CheckBox Content="Use managed bridge install (recommended)"
+                        IsChecked="{Binding PreferManagedBridgeInstall}"
+                        Foreground="{StaticResource TextPrimary}"
+                        FontSize="13" />
+
+              <StackPanel Spacing="6" IsVisible="{Binding !PreferManagedBridgeInstall}">
+                <TextBlock Text="Bridge JAR path"
+                           FontSize="12" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextSecondary}" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                  <TextBox Grid.Column="0"
+                           Text="{Binding BridgeJarPath}"
+                           Background="{StaticResource InputBg}"
+                           Foreground="{StaticResource TextPrimary}"
+                           BorderBrush="{StaticResource Separator}"
+                           PlaceholderText="Path to bootstrap-standalone.jar" />
+                  <Button Grid.Column="1"
+                          Content="Browse"
+                          Theme="{StaticResource GhostButtonTheme}"
+                          Command="{Binding BrowseBridgeJarCommand}" />
+                </Grid>
+              </StackPanel>
+
+              <StackPanel Spacing="6">
+                <TextBlock Text="Java executable"
+                           FontSize="12" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextSecondary}" />
+                <TextBox Text="{Binding JavaExecutablePath}"
+                         Background="{StaticResource InputBg}"
+                         Foreground="{StaticResource TextPrimary}"
+                         BorderBrush="{StaticResource Separator}"
+                         PlaceholderText="java" />
+              </StackPanel>
+
+              <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
+                <StackPanel Grid.Column="0" Spacing="6">
+                  <TextBlock Text="Log level"
+                             FontSize="12" FontWeight="SemiBold"
+                             Foreground="{StaticResource TextSecondary}" />
+                  <ComboBox ItemsSource="{Binding LogLevels}"
+                            SelectedItem="{Binding BridgeLogLevel}"
+                            Background="{StaticResource InputBg}"
+                            Foreground="{StaticResource TextPrimary}"
+                            BorderBrush="{StaticResource Separator}"
+                            HorizontalAlignment="Stretch" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Bottom">
+                  <CheckBox Content="Log packets"
+                            IsChecked="{Binding BridgeLogPackets}"
+                            Foreground="{StaticResource TextSecondary}"
+                            FontSize="12" />
+                </StackPanel>
+              </Grid>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <!-- ── Advanced ─────────────────────────────────── -->
+        <StackPanel Spacing="12">
+          <TextBlock Text="Advanced"
+                     FontSize="14" FontWeight="Bold"
+                     Foreground="{StaticResource TextPrimary}" />
+          <Border Background="{StaticResource CardBg}"
+                  BorderBrush="#484848"
+                  BorderThickness="1"
+                  Padding="18">
+            <StackPanel Spacing="14">
+
+              <StackPanel Spacing="6">
+                <TextBlock Text="First bridge port"
+                           FontSize="12" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextSecondary}" />
+                <NumericUpDown Value="{Binding FirstBridgePort}"
+                               Minimum="1024" Maximum="65535"
+                               Increment="1"
+                               FormatString="0"
+                               Background="{StaticResource InputBg}"
+                               Foreground="{StaticResource TextPrimary}"
+                               BorderBrush="{StaticResource Separator}"
+                               MaxWidth="160"
+                               HorizontalAlignment="Left" />
+              </StackPanel>
+
+              <CheckBox Content="Stop bridge when launcher exits"
+                        IsChecked="{Binding CloseBridgeOnExit}"
+                        Foreground="{StaticResource TextPrimary}"
+                        FontSize="13" />
+
+              <StackPanel Spacing="6">
+                <TextBlock Text="Microsoft Auth Client ID (leave blank for default)"
+                           FontSize="12" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextSecondary}" />
+                <TextBox Text="{Binding MicrosoftAuthClientId}"
+                         Background="{StaticResource InputBg}"
+                         Foreground="{StaticResource TextPrimary}"
+                         BorderBrush="{StaticResource Separator}"
+                         PlaceholderText="Default compatibility ID" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+      </StackPanel>
+    </ScrollViewer>
+
+    <!-- Save bar -->
+    <Border Grid.Row="1"
+            Background="{StaticResource SidebarBg}"
+            BorderBrush="{StaticResource Separator}"
+            BorderThickness="0,1,0,0"
+            Padding="28,14">
+      <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
+        <TextBlock Grid.Column="0"
+                   Text="{Binding SaveStatus}"
+                   Foreground="{StaticResource AccentBrush}"
+                   FontSize="12"
+                   VerticalAlignment="Center"
+                   IsVisible="{Binding SaveStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        <Button Grid.Column="2"
+                Content="Save Settings"
+                Theme="{StaticResource PlayButtonTheme}"
+                Command="{Binding SaveCommand}"
+                Height="38"
+                FontSize="13"
+                Padding="24,0" />
+      </Grid>
+    </Border>
+  </Grid>
+</UserControl>

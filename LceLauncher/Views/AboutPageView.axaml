@@ -1,0 +1,87 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:LceLauncher.ViewModels"
+             x:Class="LceLauncher.Views.AboutPageView"
+             x:DataType="vm:AboutPageViewModel"
+             Background="{StaticResource ContentBg}">
+
+  <StackPanel VerticalAlignment="Center"
+              HorizontalAlignment="Center"
+              Spacing="24"
+              MaxWidth="480"
+              Margin="40">
+
+    <!-- Badge -->
+    <Border Width="72" Height="72" CornerRadius="10"
+            HorizontalAlignment="Center">
+      <Border.Background>
+        <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+          <GradientStop Color="#4da04d" Offset="0" />
+          <GradientStop Color="#2d6e2d" Offset="1" />
+        </LinearGradientBrush>
+      </Border.Background>
+      <TextBlock Text="LCE"
+                 FontSize="20"
+                 FontWeight="Bold"
+                 Foreground="White"
+                 HorizontalAlignment="Center"
+                 VerticalAlignment="Center" />
+    </Border>
+
+    <!-- Title + version -->
+    <StackPanel Spacing="4" HorizontalAlignment="Center">
+      <TextBlock Text="LCE Launcher"
+                 FontSize="22"
+                 FontWeight="Bold"
+                 Foreground="{StaticResource TextPrimary}"
+                 HorizontalAlignment="Center" />
+      <TextBlock Text="{Binding LauncherVersion, StringFormat='Version {0}'}"
+                 FontSize="12"
+                 Foreground="{StaticResource TextSecondary}"
+                 HorizontalAlignment="Center" />
+    </StackPanel>
+
+    <!-- Description -->
+    <TextBlock Text="{Binding ProjectDescription}"
+               FontSize="13"
+               Foreground="{StaticResource TextSecondary}"
+               TextWrapping="Wrap"
+               TextAlignment="Center"
+               LineHeight="20" />
+
+    <Rectangle Height="1" Fill="{StaticResource Separator}" />
+
+    <!-- Links -->
+    <StackPanel Spacing="10" HorizontalAlignment="Center">
+      <TextBlock Text="Source Code"
+                 FontSize="12"
+                 FontWeight="SemiBold"
+                 Foreground="{StaticResource TextSecondary}"
+                 HorizontalAlignment="Center" />
+      <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+        <Button Content="Client"
+                Theme="{StaticResource GhostButtonTheme}"
+                Command="{Binding OpenClientGitHubCommand}" />
+        <Button Content="Bridge"
+                Theme="{StaticResource GhostButtonTheme}"
+                Command="{Binding OpenBridgeGitHubCommand}" />
+        <Button Content="Debug Build"
+                Theme="{StaticResource GhostButtonTheme}"
+                Command="{Binding OpenDebugGitHubCommand}" />
+      </StackPanel>
+    </StackPanel>
+
+    <Rectangle Height="1" Fill="{StaticResource Separator}" />
+
+    <!-- Folder shortcuts -->
+    <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+      <Button Content="Open Logs Folder"
+              Theme="{StaticResource GhostButtonTheme}"
+              Command="{Binding OpenLogsFolderCommand}" />
+      <Button Content="Open Data Folder"
+              Theme="{StaticResource GhostButtonTheme}"
+              Command="{Binding OpenDataFolderCommand}" />
+    </StackPanel>
+
+  </StackPanel>
+</UserControl>

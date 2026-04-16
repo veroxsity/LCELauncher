@@ -1,0 +1,113 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:LceLauncher.ViewModels"
+        x:Class="LceLauncher.Views.ServerEditDialog"
+        x:DataType="vm:ServerEditViewModel"
+        Title="{Binding Title}"
+        Width="460" Height="380"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource SidebarBg}">
+
+  <Grid RowDefinitions="*,Auto" Margin="24">
+
+    <!-- Form fields -->
+    <ScrollViewer Grid.Row="0">
+      <StackPanel Spacing="16">
+
+        <!-- Display Name -->
+        <StackPanel Spacing="6">
+          <TextBlock Text="Display Name"
+                     FontSize="12"
+                     FontWeight="SemiBold"
+                     Foreground="{StaticResource TextSecondary}" />
+          <TextBox Text="{Binding DisplayName}"
+                   Background="{StaticResource InputBg}"
+                   Foreground="{StaticResource TextPrimary}"
+                   BorderBrush="{StaticResource Separator}"
+                   CaretBrush="{StaticResource AccentBrush}" />
+        </StackPanel>
+
+        <!-- Type selector -->
+        <StackPanel Spacing="6">
+          <TextBlock Text="Connection Type"
+                     FontSize="12"
+                     FontWeight="SemiBold"
+                     Foreground="{StaticResource TextSecondary}" />
+          <StackPanel Orientation="Horizontal" Spacing="20">
+            <RadioButton Content="Native LCE"
+                         IsChecked="{Binding !IsJavaBridge}"
+                         Foreground="{StaticResource TextPrimary}" />
+            <RadioButton Content="Java Bridge"
+                         IsChecked="{Binding IsJavaBridge}"
+                         Foreground="{StaticResource TextPrimary}" />
+          </StackPanel>
+        </StackPanel>
+
+        <!-- Remote Address + Port -->
+        <Grid ColumnDefinitions="*,Auto,100">
+          <StackPanel Grid.Column="0" Spacing="6">
+            <TextBlock Text="Remote Address"
+                       FontSize="12"
+                       FontWeight="SemiBold"
+                       Foreground="{StaticResource TextSecondary}" />
+            <TextBox Text="{Binding RemoteAddress}"
+                     Background="{StaticResource InputBg}"
+                     Foreground="{StaticResource TextPrimary}"
+                     BorderBrush="{StaticResource Separator}"
+                     CaretBrush="{StaticResource AccentBrush}"
+                     PlaceholderText="mc.example.com" />
+          </StackPanel>
+          <TextBlock Grid.Column="1" Text=":" VerticalAlignment="Bottom"
+                     Foreground="{StaticResource TextSecondary}"
+                     Margin="8,0" FontSize="16" Padding="0,0,0,6" />
+          <StackPanel Grid.Column="2" Spacing="6">
+            <TextBlock Text="Port"
+                       FontSize="12"
+                       FontWeight="SemiBold"
+                       Foreground="{StaticResource TextSecondary}" />
+            <NumericUpDown Value="{Binding RemotePort}"
+                           Minimum="1" Maximum="65535"
+                           Increment="1"
+                           FormatString="0"
+                           Background="{StaticResource InputBg}"
+                           Foreground="{StaticResource TextPrimary}"
+                           BorderBrush="{StaticResource Separator}" />
+          </StackPanel>
+        </Grid>
+
+        <!-- Online auth toggle (only for Java Bridge) -->
+        <CheckBox Content="Requires online (Microsoft) authentication"
+                  IsChecked="{Binding RequiresOnlineAuth}"
+                  Foreground="{StaticResource TextSecondary}"
+                  FontSize="12"
+                  IsVisible="{Binding IsJavaBridge}" />
+
+        <!-- Validation error -->
+        <TextBlock Text="{Binding ValidationError}"
+                   Foreground="{StaticResource DangerBrush}"
+                   FontSize="12"
+                   IsVisible="{Binding ValidationError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                   TextWrapping="Wrap" />
+      </StackPanel>
+    </ScrollViewer>
+
+    <!-- Buttons -->
+    <StackPanel Grid.Row="1"
+                Orientation="Horizontal"
+                HorizontalAlignment="Right"
+                Spacing="10"
+                Margin="0,16,0,0">
+      <Button Content="Cancel"
+              Theme="{StaticResource GhostButtonTheme}"
+              Command="{Binding CancelCommand}"
+              Padding="20,8" />
+      <Button Content="Save"
+              Theme="{StaticResource PlayButtonTheme}"
+              Command="{Binding ConfirmCommand}"
+              Padding="20,0"
+              Height="36"
+              FontSize="13" />
+    </StackPanel>
+  </Grid>
+</Window>

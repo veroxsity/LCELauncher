@@ -1,0 +1,237 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="LceLauncher.App"
+             RequestedThemeVariant="Dark">
+
+  <Application.Styles>
+    <FluentTheme />
+  </Application.Styles>
+
+  <Application.Resources>
+    <!-- ── Palette (neutral dark grey — matches Java launcher) ── -->
+    <SolidColorBrush x:Key="SidebarBg"         Color="#212121" />
+    <SolidColorBrush x:Key="SidebarSelectedBg" Color="#323232" />
+    <SolidColorBrush x:Key="SidebarHoverBg"    Color="#2a2a2a" />
+    <SolidColorBrush x:Key="ContentBg"         Color="#282828" />
+    <SolidColorBrush x:Key="CardBg"            Color="#3c3c3c" />
+    <SolidColorBrush x:Key="TabBarBg"          Color="#212121" />
+    <SolidColorBrush x:Key="TabUnderline"      Color="#5db45d" />
+    <SolidColorBrush x:Key="PlayBtnBg"         Color="#5db45d" />
+    <SolidColorBrush x:Key="PlayBtnHoverBg"    Color="#4da04d" />
+    <SolidColorBrush x:Key="AccentBrush"       Color="#5db45d" />
+    <SolidColorBrush x:Key="TextPrimary"       Color="#FFFFFF" />
+    <SolidColorBrush x:Key="TextSecondary"     Color="#8c8c8c" />
+    <SolidColorBrush x:Key="TextDim"           Color="#5a5a5a" />
+    <SolidColorBrush x:Key="Separator"         Color="#3a3a3a" />
+    <SolidColorBrush x:Key="InputBg"           Color="#1a1a1a" />
+    <SolidColorBrush x:Key="DangerBrush"       Color="#c94f4f" />
+
+    <!-- ── Sidebar nav-item buttons ───────────────────────── -->
+    <!-- Bevelled 3D-style buttons matching the Java launcher.
+         Top border is lighter (highlight), bottom border is darker (shadow) = raised look. -->
+    <ControlTheme x:Key="SidebarItemTheme" TargetType="ListBoxItem">
+      <Setter Property="Padding"         Value="0" />
+      <Setter Property="Margin"          Value="0,1" />
+      <Setter Property="Background"      Value="#2e2e2e" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="BorderBrush"     Value="Transparent" />
+      <Setter Property="Foreground"      Value="{StaticResource TextSecondary}" />
+      <Setter Property="FontSize"        Value="12" />
+      <Setter Property="FontWeight"      Value="SemiBold" />
+      <Setter Property="Cursor"          Value="Hand" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <!-- Top-highlight border (lighter) wraps a bottom-shadow border (darker) -->
+          <Border BorderBrush="#3e3e3e" BorderThickness="0,1,0,0">
+            <Border BorderBrush="#181818" BorderThickness="0,0,0,1">
+              <!-- Button face with left accent bar -->
+              <Grid ColumnDefinitions="4,*"
+                    Background="{TemplateBinding Background}">
+                <Rectangle Grid.Column="0"
+                           Fill="{TemplateBinding BorderBrush}" />
+                <ContentPresenter Grid.Column="1"
+                                  Content="{TemplateBinding Content}"
+                                  HorizontalAlignment="Stretch"
+                                  VerticalAlignment="Center"
+                                  Margin="12,0,12,0" />
+              </Grid>
+            </Border>
+          </Border>
+        </ControlTemplate>
+      </Setter>
+
+      <Style Selector="^:pointerover">
+        <Setter Property="Background"  Value="#383838" />
+        <Setter Property="Foreground"  Value="{StaticResource TextPrimary}" />
+      </Style>
+      <Style Selector="^:selected">
+        <Setter Property="Background"  Value="#404040" />
+        <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+        <Setter Property="Foreground"  Value="{StaticResource TextPrimary}" />
+      </Style>
+      <Style Selector="^:pressed">
+        <!-- Pressed = invert the bevel (top gets darker, bottom gets lighter) -->
+        <Setter Property="Background"  Value="#282828" />
+      </Style>
+    </ControlTheme>
+
+    <!-- ── Tab bar buttons ───────────────────────────────── -->
+    <ControlTheme x:Key="TabButtonTheme" TargetType="ListBoxItem">
+      <Setter Property="Padding"         Value="20,0" />
+      <Setter Property="Margin"          Value="0" />
+      <Setter Property="Background"      Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0,0,0,4" />
+      <Setter Property="BorderBrush"     Value="Transparent" />
+      <Setter Property="Foreground"      Value="{StaticResource TextSecondary}" />
+      <Setter Property="FontSize"        Value="13" />
+      <Setter Property="Cursor"          Value="Hand" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter Content="{TemplateBinding Content}"
+                              VerticalAlignment="Center"
+                              HorizontalAlignment="Center" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+
+      <Style Selector="^:pointerover">
+        <Setter Property="Background" Value="#363636" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+      </Style>
+      <Style Selector="^:selected">
+        <Setter Property="Background"  Value="Transparent" />
+        <Setter Property="BorderBrush" Value="{StaticResource TabUnderline}" />
+        <Setter Property="Foreground"  Value="{StaticResource TextPrimary}" />
+        <Setter Property="FontWeight"  Value="SemiBold" />
+      </Style>
+    </ControlTheme>
+
+    <!-- ── Primary action button (green PLAY style) ──────── -->
+    <ControlTheme x:Key="PlayButtonTheme" TargetType="Button">
+      <Setter Property="Background"           Value="{StaticResource PlayBtnBg}" />
+      <Setter Property="Foreground"           Value="White" />
+      <Setter Property="FontSize"             Value="16" />
+      <Setter Property="FontWeight"           Value="Bold" />
+      <Setter Property="CornerRadius"         Value="3" />
+      <Setter Property="Padding"              Value="32,0" />
+      <Setter Property="Height"               Value="44" />
+      <Setter Property="Cursor"               Value="Hand" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment"   Value="Center" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}"
+                  CornerRadius="{TemplateBinding CornerRadius}"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter Content="{TemplateBinding Content}"
+                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+
+      <Style Selector="^:pointerover /template/ Border">
+        <Setter Property="Background" Value="{StaticResource PlayBtnHoverBg}" />
+      </Style>
+      <Style Selector="^:pressed /template/ Border">
+        <Setter Property="Background" Value="#3d8b3d" />
+      </Style>
+      <Style Selector="^:disabled /template/ Border">
+        <Setter Property="Background" Value="#3a3a3a" />
+        <Setter Property="Opacity" Value="0.6" />
+      </Style>
+    </ControlTheme>
+
+    <!-- ── Danger button ─────────────────────────────────── -->
+    <ControlTheme x:Key="DangerButtonTheme" TargetType="Button">
+      <Setter Property="Background"   Value="Transparent" />
+      <Setter Property="Foreground"   Value="{StaticResource DangerBrush}" />
+      <Setter Property="BorderBrush"  Value="{StaticResource DangerBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="Padding"      Value="12,6" />
+      <Setter Property="Cursor"       Value="Hand" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{TemplateBinding CornerRadius}"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter Content="{TemplateBinding Content}"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+      <Style Selector="^:pointerover /template/ Border">
+        <Setter Property="Background" Value="#3d1a1a" />
+      </Style>
+    </ControlTheme>
+
+    <!-- ── Ghost/secondary button ─────────────────────────── -->
+    <ControlTheme x:Key="GhostButtonTheme" TargetType="Button">
+      <Setter Property="Background"      Value="Transparent" />
+      <Setter Property="Foreground"      Value="{StaticResource TextSecondary}" />
+      <Setter Property="BorderBrush"     Value="{StaticResource Separator}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius"    Value="3" />
+      <Setter Property="Padding"         Value="12,6" />
+      <Setter Property="Cursor"          Value="Hand" />
+      <Setter Property="FontSize"        Value="12" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{TemplateBinding CornerRadius}"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter Content="{TemplateBinding Content}"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+      <Style Selector="^:pointerover /template/ Border">
+        <Setter Property="Background"  Value="{StaticResource SidebarHoverBg}" />
+        <Setter Property="BorderBrush" Value="{StaticResource TextSecondary}" />
+      </Style>
+      <Style Selector="^:disabled /template/ Border">
+        <Setter Property="Opacity" Value="0.5" />
+      </Style>
+    </ControlTheme>
+
+    <!-- ── Accent button (install/update) ────────────────── -->
+    <ControlTheme x:Key="AccentButtonTheme" TargetType="Button">
+      <Setter Property="Background"   Value="{StaticResource AccentBrush}" />
+      <Setter Property="Foreground"   Value="White" />
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="Padding"      Value="16,7" />
+      <Setter Property="Cursor"       Value="Hand" />
+      <Setter Property="FontSize"     Value="12" />
+      <Setter Property="FontWeight"   Value="SemiBold" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}"
+                  CornerRadius="{TemplateBinding CornerRadius}"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter Content="{TemplateBinding Content}"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+      <Style Selector="^:pointerover /template/ Border">
+        <Setter Property="Background" Value="{StaticResource PlayBtnHoverBg}" />
+      </Style>
+      <Style Selector="^:disabled /template/ Border">
+        <Setter Property="Opacity" Value="0.5" />
+      </Style>
+    </ControlTheme>
+  </Application.Resources>
+
+</Application>

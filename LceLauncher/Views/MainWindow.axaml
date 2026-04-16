@@ -1,0 +1,172 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:LceLauncher.ViewModels"
+        xmlns:views="using:LceLauncher.Views"
+        xmlns:local="using:LceLauncher"
+        x:Class="LceLauncher.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="LCE Launcher"
+        Width="1100" Height="680"
+        MinWidth="900" MinHeight="540"
+        Background="{StaticResource SidebarBg}"
+        Icon="/Assets/icon.ico"
+        WindowStartupLocation="CenterScreen">
+
+  <Window.DataTemplates>
+    <DataTemplate DataType="{x:Type vm:SidebarNavItem}">
+      <!-- SidebarNavItem display template - used inside the ListBox -->
+      <Grid Height="54">
+        <StackPanel VerticalAlignment="Center" Margin="0">
+          <TextBlock Text="{Binding DisplayName}"
+                     FontSize="11"
+                     FontWeight="SemiBold"
+                     LetterSpacing="1" />
+          <TextBlock Text="{Binding Subtitle}"
+                     FontSize="10"
+                     Foreground="{StaticResource TextSecondary}"
+                     IsVisible="{Binding Subtitle, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                     Margin="0,1,0,0" />
+        </StackPanel>
+      </Grid>
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:TabNavItem}">
+      <TextBlock Text="{Binding DisplayName}" />
+    </DataTemplate>
+  </Window.DataTemplates>
+
+  <Grid ColumnDefinitions="175,1,1,*">
+
+    <!-- ══ SIDEBAR ══════════════════════════════════════════ -->
+    <Border Grid.Column="0" Background="{StaticResource SidebarBg}">
+      <Grid RowDefinitions="Auto,*,Auto,Auto,Auto">
+
+        <!-- Profile section — beveled bottom edge gives it a recessed/defined look -->
+        <Border Grid.Row="0"
+                Background="#1a1a1a"
+                BorderBrush="#181818"
+                BorderThickness="0,0,0,1"
+                Padding="12,10">
+          <Grid ColumnDefinitions="Auto,*">
+            <!-- Avatar: real image when available, initials circle as fallback -->
+            <Panel Grid.Column="0" Width="32" Height="32" Margin="0,0,10,0">
+              <!-- Initials circle (shown when no avatar is loaded) -->
+              <Border Width="32" Height="32"
+                      CornerRadius="16"
+                      Background="#484848"
+                      IsVisible="{Binding ProfileAvatar, Converter={x:Static ObjectConverters.IsNull}}">
+                <TextBlock Text="{Binding DisplayUsername[0]}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           FontSize="14"
+                           FontWeight="Bold"
+                           Foreground="White" />
+              </Border>
+              <!-- Real avatar image clipped to a circle -->
+              <Border Width="32" Height="32"
+                      CornerRadius="16"
+                      ClipToBounds="True"
+                      IsVisible="{Binding ProfileAvatar, Converter={x:Static ObjectConverters.IsNotNull}}">
+                <Image Source="{Binding ProfileAvatar}"
+                       Stretch="UniformToFill" />
+              </Border>
+            </Panel>
+            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+              <TextBlock Text="{Binding DisplayUsername}"
+                         FontSize="12"
+                         FontWeight="SemiBold"
+                         Foreground="{StaticResource TextPrimary}" />
+              <TextBlock Text="LCE Launcher"
+                         FontSize="10"
+                         Foreground="{StaticResource TextSecondary}" />
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <!-- Main nav items -->
+        <ListBox Grid.Row="1"
+                 ItemsSource="{Binding SidebarItems}"
+                 SelectedItem="{Binding SelectedTopItem}"
+                 Background="Transparent"
+                 BorderThickness="0"
+                 Padding="0"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+          <ListBox.ItemContainerTheme>
+            <StaticResource ResourceKey="SidebarItemTheme" />
+          </ListBox.ItemContainerTheme>
+        </ListBox>
+
+        <!-- Separator -->
+        <Rectangle Grid.Row="2" Height="1" Fill="{StaticResource Separator}" Margin="12,0" />
+
+        <!-- Bottom nav items (Settings, About) -->
+        <ListBox Grid.Row="3"
+                 ItemsSource="{Binding BottomSidebarItems}"
+                 SelectedItem="{Binding SelectedBottomItem}"
+                 Background="Transparent"
+                 BorderThickness="0"
+                 Padding="0"
+                 Margin="0,4,0,0"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+          <ListBox.ItemContainerTheme>
+            <StaticResource ResourceKey="SidebarItemTheme" />
+          </ListBox.ItemContainerTheme>
+        </ListBox>
+
+        <!-- Version label -->
+        <TextBlock Grid.Row="4"
+                   Text="{Binding Version}"
+                   Foreground="{StaticResource TextDim}"
+                   FontSize="10"
+                   Margin="16,8,0,10" />
+      </Grid>
+    </Border>
+
+    <!-- ══ SIDEBAR/CONTENT BEVEL DIVIDER ═══════════════════ -->
+    <!-- Column 1: dark shadow edge (right of sidebar) -->
+    <Rectangle Grid.Column="1" Fill="#181818" />
+    <!-- Column 2: light highlight edge (left of content) -->
+    <Rectangle Grid.Column="2" Fill="#3e3e3e" />
+
+    <!-- ══ CONTENT AREA ═════════════════════════════════════ -->
+    <Grid Grid.Column="3" RowDefinitions="Auto,*" Background="{StaticResource ContentBg}">
+
+      <!-- Tab bar (only visible when a tabbed sidebar item is active) -->
+      <!-- Outer bevel: dark shadow at very bottom of tab bar -->
+      <Border Grid.Row="0"
+              IsVisible="{Binding ShowTabBar}"
+              BorderBrush="#181818"
+              BorderThickness="0,0,0,1">
+        <!-- Inner: tab bar content with light highlight line above the shadow -->
+        <Border Background="{StaticResource TabBarBg}"
+                Height="44"
+                BorderBrush="#3a3a3a"
+                BorderThickness="0,0,0,1">
+          <ListBox ItemsSource="{Binding CurrentTabs}"
+                   SelectedItem="{Binding SelectedTab}"
+                   Background="Transparent"
+                   BorderThickness="0"
+                   Padding="12,0"
+                   ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Orientation="Horizontal" />
+              </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
+            <ListBox.ItemContainerTheme>
+              <StaticResource ResourceKey="TabButtonTheme" />
+            </ListBox.ItemContainerTheme>
+          </ListBox>
+        </Border>
+      </Border>
+
+      <!-- Page content — ViewLocator maps VM → View -->
+      <ContentControl Grid.Row="1"
+                      Content="{Binding CurrentContent}">
+        <ContentControl.DataTemplates>
+          <local:ViewLocator />
+        </ContentControl.DataTemplates>
+      </ContentControl>
+    </Grid>
+
+  </Grid>
+</Window>

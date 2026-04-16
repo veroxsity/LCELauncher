@@ -1,0 +1,114 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:LceLauncher.ViewModels"
+             x:Class="LceLauncher.Views.ServersPageView"
+             x:DataType="vm:ServersPageViewModel"
+             Background="{StaticResource ContentBg}">
+
+  <Grid RowDefinitions="Auto,*">
+
+    <!-- Header bar -->
+    <Border Grid.Row="0"
+            Padding="28,16"
+            BorderBrush="{StaticResource Separator}"
+            BorderThickness="0,0,0,1">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Grid.Column="0">
+          <TextBlock Text="Servers"
+                     FontSize="18"
+                     FontWeight="Bold"
+                     Foreground="{StaticResource TextPrimary}" />
+          <TextBlock Text="Manage servers and Java bridge connections"
+                     FontSize="12"
+                     Foreground="{StaticResource TextSecondary}"
+                     Margin="0,3,0,0" />
+        </StackPanel>
+        <Button Grid.Column="1"
+                Content="+ Add Server"
+                Theme="{StaticResource AccentButtonTheme}"
+                VerticalAlignment="Center"
+                Command="{Binding AddServerCommand}" />
+      </Grid>
+    </Border>
+
+    <!-- Server list -->
+    <ScrollViewer Grid.Row="1" Padding="28,16">
+      <StackPanel Spacing="10">
+
+        <!-- Empty state -->
+        <StackPanel IsVisible="{Binding !ServerVms.Count}"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Center"
+                    Spacing="12"
+                    Margin="0,60">
+          <TextBlock Text="No servers added yet"
+                     FontSize="15"
+                     Foreground="{StaticResource TextSecondary}"
+                     HorizontalAlignment="Center" />
+          <TextBlock Text="Add a Native LCE server or a Java bridge connection to get started."
+                     FontSize="12"
+                     Foreground="{StaticResource TextDim}"
+                     HorizontalAlignment="Center"
+                     TextWrapping="Wrap"
+                     MaxWidth="340"
+                     TextAlignment="Center" />
+        </StackPanel>
+
+        <!-- Server cards -->
+        <ItemsControl ItemsSource="{Binding ServerVms}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate DataType="{x:Type vm:ServerEntryViewModel}">
+              <Border Background="{StaticResource CardBg}"
+                      CornerRadius="6"
+                      Padding="16,12"
+                      Margin="0,0,0,2">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+
+                  <!-- Type badge -->
+                  <Border Grid.Column="0"
+                          Background="#404040"
+                          CornerRadius="4"
+                          Padding="8,4"
+                          Margin="0,0,14,0"
+                          VerticalAlignment="Center">
+                    <TextBlock Text="{Binding TypeLabel}"
+                               FontSize="10"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource AccentBrush}"
+                               LetterSpacing="0.5" />
+                  </Border>
+
+                  <!-- Info -->
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                    <TextBlock Text="{Binding DisplayName}"
+                               FontSize="14"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource TextPrimary}" />
+                    <TextBlock Text="{Binding Address}"
+                               FontSize="11"
+                               Foreground="{StaticResource TextSecondary}" />
+                  </StackPanel>
+
+                  <!-- Actions -->
+                  <StackPanel Grid.Column="2"
+                              Orientation="Horizontal"
+                              Spacing="6"
+                              VerticalAlignment="Center">
+                    <Button Content="Edit"
+                            Theme="{StaticResource GhostButtonTheme}"
+                            Command="{Binding $parent[ItemsControl].((vm:ServersPageViewModel)DataContext).EditServerCommand}"
+                            CommandParameter="{Binding}" />
+                    <Button Content="Delete"
+                            Theme="{StaticResource DangerButtonTheme}"
+                            Command="{Binding $parent[ItemsControl].((vm:ServersPageViewModel)DataContext).DeleteServerCommand}"
+                            CommandParameter="{Binding}" />
+                  </StackPanel>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</UserControl>
